@@ -181,7 +181,12 @@ static int __init omap_clk_setup(char *str)
 	if (!mpurate)
 		return 1;
 
+#ifdef CONFIG_MACH_PANTHER
+// Raise the limitation from '< 1000' to '<= 1000' to set Pantherboard's MPU rate to 1GHz.
+	if (mpurate <= 1000)
+#else
 	if (mpurate < 1000)
+#endif
 		mpurate *= 1000000;
 
 	return 1;
