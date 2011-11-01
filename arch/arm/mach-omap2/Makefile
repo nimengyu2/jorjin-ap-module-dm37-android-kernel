@@ -184,6 +184,9 @@ obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \
 					   hsmmc.o
 obj-$(CONFIG_MACH_DEVKIT8000)     	+= board-devkit8000.o \
                                            hsmmc.o
+obj-$(CONFIG_MACH_PANTHER)		+= board-panther.o \
+					   board-flash.o \
+					   hsmmc.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 					   board-flash.o \
 					   hsmmc.o
@@ -278,6 +281,11 @@ obj-y					+= $(smsc911x-m) $(smsc911x-y)
 ifeq ($(CONFIG_MACH_OMAP3_BEAGLE),y)
 beagle-camera-$(CONFIG_VIDEO_OMAP3)	:= board-omap3beagle-camera.o
 obj-y					+= $(beagle-camera-m) $(beagle-camera-y)
+endif
+
+ifeq ($(CONFIG_MACH_PANTHER),y)
+panther-camera-$(CONFIG_VIDEO_OMAP3)	:= board-panther-camera.o
+obj-y					+= $(panther-camera-m) $(panther-camera-y)
 endif
 
 ifeq ($(CONFIG_MACH_OMAP3EVM),y)

@@ -125,6 +125,15 @@ config SND_OMAP_SOC_OMAP3_BEAGLE
 	  Say Y if you want to add support for SoC audio on the Beagleboard or
 	  the clone Devkit8000.
 
+config SND_OMAP_SOC_PANTHER
+	tristate "SoC Audio support for Panther"
+	depends on TWL4030_CORE && SND_OMAP_SOC
+	depends on MACH_PANTHER
+	select SND_OMAP_SOC_MCBSP
+	select SND_SOC_TWL4030
+	help
+	  Say Y if you want to add support for SoC audio on the Pantherboard.
+
 config SND_OMAP_SOC_ZOOM2
 	tristate "SoC Audio support for Zoom2"
 	depends on TWL4030_CORE && SND_OMAP_SOC && MACH_OMAP_ZOOM2

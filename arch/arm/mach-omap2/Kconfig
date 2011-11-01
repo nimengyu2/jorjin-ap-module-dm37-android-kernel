@@ -155,6 +155,12 @@ config MACH_DEVKIT8000
 	default y
 	select OMAP_PACKAGE_CUS
 
+config MACH_PANTHER
+	bool "Jorjin Panther board"
+	depends on ARCH_OMAP3
+	default n
+	select OMAP_PACKAGE_CBB
+
 config MACH_OMAP_LDP
 	bool "OMAP3 LDP board"
 	depends on ARCH_OMAP3
