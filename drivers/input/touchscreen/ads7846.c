@@ -166,6 +166,14 @@ struct ads7846 {
 #define OMAP3EVM_YRES	        640
 #endif
 
+#if defined(CONFIG_MACH_PANTHER)
+#define OMAP3EVM_XMIN		0x078
+#define OMAP3EVM_XMAX		0xF50
+#define OMAP3EVM_YMIN		0x140
+#define OMAP3EVM_YMAX		0xFA0
+#define OMAP3EVM_XRES		800
+#define OMAP3EVM_YRES	        480
+#endif
 
 /* leave chip selected when we're done, for quicker re-select? */
 #if	0
@@ -885,6 +893,13 @@ static void ads7846_report_state(struct ads7846 *ts)
 #ifdef CONFIG_MACH_OVERO
 		y = pdata->y_max -
 			((pdata->y_max * (y - OVERO_YMIN)) / (OVERO_YMAX - OVERO_YMIN));
+#endif
+
+#ifdef CONFIG_MACH_PANTHER
+		//x = pdata->x_max -
+		//	((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
+		y = pdata->y_max -
+			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
 #endif
 
 		input_report_abs(input, ABS_X, x);

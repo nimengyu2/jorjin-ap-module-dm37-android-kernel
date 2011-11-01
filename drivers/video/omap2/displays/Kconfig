@@ -7,6 +7,13 @@ config PANEL_GENERIC
 	  Generic panel driver.
 	  Used for DVI output for Beagle and OMAP3 SDP.
 
+config PANEL_TEMP
+        tristate "Test Panel"
+        depends on OMAP2_DSS
+        select BACKLIGHT_CLASS_DEVICE
+        help
+	  Template panel driver. (For testing only)
+
 config PANEL_LGPHILIPS_LB035Q02
 	tristate "LG.Philips LB035Q02 LCD Panel"
 	depends on OMAP2_DSS

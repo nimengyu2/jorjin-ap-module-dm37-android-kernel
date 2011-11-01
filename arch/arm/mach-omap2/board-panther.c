@@ -32,6 +32,10 @@
 
 #include <linux/usb/android_composite.h>
 
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+#include <linux/spi/ads7846.h>
+#endif
+
 #include <linux/regulator/machine.h>
 #include <linux/i2c/twl.h>
 
@@ -137,6 +141,124 @@ static void panther_android_gadget_init(void)
 }
 #endif
 
+
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+
+#define PANTHER_TS_GPIO       157
+
+#include <plat/mcspi.h>
+#include <linux/spi/spi.h>
+
+static struct omap2_mcspi_device_config ads7846_mcspi_config = {
+        .turbo_mode     = 0,
+        .single_channel = 1,    /* 0: slave, 1: master */
+};
+
+static int ads7846_get_pendown_state(void)
+{
+        return !gpio_get_value(PANTHER_TS_GPIO);
+}
+
+struct ads7846_platform_data ads7846_config = {
+        .x_max                  = 0x0fff,
+        .y_max                  = 0x0fff,
+        .x_plate_ohms           = 180,
+        .pressure_max           = 255,
+        .debounce_max           = 10,
+        .debounce_tol           = 3,
+        .debounce_rep           = 1,
+        .get_pendown_state      = ads7846_get_pendown_state,
+        .keep_vref_on           = 1,
+        .settle_delay_usecs     = 150,
+        .wakeup                         = true,
+};
+
+static void __init panther_config_mcspi4_mux(void)
+{
+        omap_mux_init_signal("mcbsp1_clkr.mcspi4_clk", OMAP_PIN_INPUT);
+        omap_mux_init_signal("mcbsp1_fsx.mcspi4_cs0", OMAP_PIN_OUTPUT);
+        omap_mux_init_signal("mcbsp1_dx.mcspi4_simo", OMAP_PIN_OUTPUT);
+        omap_mux_init_signal("mcbsp1_dr.mcspi4_somi", OMAP_PIN_INPUT_PULLUP);
+}
+
+struct spi_board_info panther_spi_board_info[] = {
+        [0] = {
+                .modalias               = "ads7846",
+                .bus_num                = 4,
+                .chip_select            = 0,
+                .max_speed_hz           = 1500000,
+                .controller_data        = &ads7846_mcspi_config,
+                .irq                    = OMAP_GPIO_IRQ(PANTHER_TS_GPIO),
+                .platform_data          = &ads7846_config,
+        },
+};
+
+static void ads7846_dev_init(void)
+{
+	printk("Initialize ads7846 touch screen controller\n");
+
+	if (gpio_request(PANTHER_TS_GPIO, "ADS7846 pendown") < 0)
+		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
+
+	gpio_direction_input(PANTHER_TS_GPIO);
+	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
+}
+
+// Please note that although we have added blacklight adjustment function in our code, we actually do not have a PWM connected to Chipsee's panel.
+// This is just a model for further using. It will not change the backlight intensity.
+// Also, this funtion is related to Android's light module at "<ROWBOAT>/hardware/ti/omap3/liblights/pantherboard". Please modify that module too if necessary.
+static int panther_set_bl_intensity(struct omap_dss_device *dssdev, int level)
+{
+	unsigned char c;
+
+	if (level > dssdev->max_backlight_level)
+		level = dssdev->max_backlight_level;
+
+	c = ((125 * (100 - level)) / 100) + 1;
+
+/*
+ * PWM0 register offsets (TWL4030_MODULE_PWM0)
+ */
+#define TWL_PWM0ON	0x0
+	twl_i2c_write_u8(TWL4030_MODULE_PWM0, c, TWL_PWM0ON);
+
+	return 0;
+}
+
+static int panther_enable_lcd(struct omap_dss_device *dssdev)
+{
+#define TWL_GPBR1	0xc
+#define TWL_PWM0OFF	0x1
+#define TWL_PMBR1	0xd
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x04, TWL_PMBR1);	// set GPIO.6 to PWM0
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x05, TWL_GPBR1);	// enable PWM0 output & clock
+	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
+
+	return 0;
+}
+
+static void panther_disable_lcd(struct omap_dss_device *dssdev)
+{
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x00, TWL_PMBR1);	// restore GPIO.6
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x00, TWL_GPBR1);	// disable PWM0 output & clock
+	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
+}
+
+static struct omap_dss_device panther_lcd_device = {
+	.name			= "lcd",
+	.driver_name		= "temp_panel",
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.phy.dpi.data_lines	= 24,
+	.max_backlight_level	= 100,
+	.platform_enable	= panther_enable_lcd,
+	.platform_disable	= panther_disable_lcd,
+	.set_backlight	= panther_set_bl_intensity,
+};
+
+#else
+static inline void __init ads7846_dev_init(void) { return; }
+#endif
+
 static struct mtd_partition panther_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
@@ -202,6 +324,9 @@ static struct omap_dss_device panther_tv_device = {
 };
 
 static struct omap_dss_device *panther_dss_devices[] = {
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+	&panther_lcd_device,
+#endif
 	&panther_dvi_device,
 	&panther_tv_device,
 };
@@ -525,6 +650,22 @@ static struct gpio_keys_button gpio_buttons[] = {
 		.active_low		= false,
 		.wakeup			= 1,
 	},
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+	{
+		.code			= KEY_PROG2,
+		.gpio			= 137,
+		.desc			= "s1",
+		.active_low		= true,
+		.wakeup			= 1,
+	},
+	{
+		.code			= KEY_PROG3,
+		.gpio			= 138,
+		.desc			= "s2",
+		.active_low		= true,
+		.wakeup			= 1,
+	},
+#endif
 };
 
 static struct gpio_keys_platform_data gpio_key_info = {
@@ -605,6 +746,9 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
+#endif
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 #endif
@@ -626,6 +770,12 @@ static void __init panther_init(void)
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
 	panther_flash_init();
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
+	panther_config_mcspi4_mux();
+	panther_spi_board_info[0].irq = gpio_to_irq(PANTHER_TS_GPIO);
+	spi_register_board_info(panther_spi_board_info, ARRAY_SIZE(panther_spi_board_info));
+	ads7846_dev_init();
+#endif
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
