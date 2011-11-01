@@ -2087,6 +2087,22 @@ static int omapfb_mode_to_timings(const char *mode_str,
 	r = fb_find_mode(&var, &fbi, mode_str, NULL, 0, NULL, 24);
 
 	if (r != 0) {
+		// Jack_20111027: Change the sequence of hbp, hfp, vbp and vfp.
+		//	By checking the parameters in fb_cvt_convert_to_mode(), we can know that "left_margin" equals to "hfp"(horizontal front porch),
+		//	"right_margin" equals to "hbp"(horizontal back porch), "lower_margin" equals to "vbp" and "upper_margin" equals to "vbp".
+		//	This set of timing settings, however, can not display the 720p resolution normaly with regular displays.
+		//	After some cross reference (with kernel 2.6.32), we have fixed the issue by changing the following code.
+#ifdef CONFIG_MACH_PANTHER
+		timings->pixel_clock = PICOS2KHZ(var.pixclock);
+		timings->hfp = var.left_margin;
+		timings->hbp = var.right_margin;
+		timings->vfp = var.upper_margin;
+		timings->vbp = var.lower_margin;
+		timings->hsw = var.hsync_len;
+		timings->vsw = var.vsync_len;
+		timings->x_res = var.xres;
+		timings->y_res = var.yres;
+#else
 		timings->pixel_clock = PICOS2KHZ(var.pixclock);
 		timings->hbp = var.left_margin;
 		timings->hfp = var.right_margin;
@@ -2096,6 +2112,7 @@ static int omapfb_mode_to_timings(const char *mode_str,
 		timings->vsw = var.vsync_len;
 		timings->x_res = var.xres;
 		timings->y_res = var.yres;
+#endif
 
 		switch (var.bits_per_pixel) {
 		case 16:
