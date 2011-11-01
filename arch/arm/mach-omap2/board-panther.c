@@ -131,104 +131,13 @@ static struct platform_device androidusb_device = {
 	},
 };
 
-static void omap3evm_android_gadget_init(void)
+static void panther_android_gadget_init(void)
 {
 	platform_device_register(&androidusb_device);
 }
 #endif
-/*
- * OMAP3 Beagle revision
- * Run time detection of Beagle revision is done by reading GPIO.
- * GPIO ID -
- *	AXBX	= GPIO173, GPIO172, GPIO171: 1 1 1
- *	C1_3	= GPIO173, GPIO172, GPIO171: 1 1 0
- *	C4	= GPIO173, GPIO172, GPIO171: 1 0 1
- *	XM	= GPIO173, GPIO172, GPIO171: 0 0 0
- */
-enum {
-	OMAP3BEAGLE_BOARD_UNKN = 0,
-	OMAP3BEAGLE_BOARD_AXBX,
-	OMAP3BEAGLE_BOARD_C1_3,
-	OMAP3BEAGLE_BOARD_C4,
-	OMAP3BEAGLE_BOARD_XM,
-	OMAP3BEAGLE_BOARD_XMC,
-};
 
-static u8 omap3_beagle_version;
-
-static u8 omap3_beagle_get_rev(void)
-{
-	return omap3_beagle_version;
-}
-
-static void __init omap3_beagle_init_rev(void)
-{
-	int ret;
-	u16 beagle_rev = 0;
-
-	omap_mux_init_gpio(171, OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_gpio(172, OMAP_PIN_INPUT_PULLUP);
-	omap_mux_init_gpio(173, OMAP_PIN_INPUT_PULLUP);
-
-	ret = gpio_request(171, "rev_id_0");
-	if (ret < 0)
-		goto fail0;
-
-	ret = gpio_request(172, "rev_id_1");
-	if (ret < 0)
-		goto fail1;
-
-	ret = gpio_request(173, "rev_id_2");
-	if (ret < 0)
-		goto fail2;
-
-	gpio_direction_input(171);
-	gpio_direction_input(172);
-	gpio_direction_input(173);
-
-	beagle_rev = gpio_get_value(171) | (gpio_get_value(172) << 1)
-			| (gpio_get_value(173) << 2);
-
-	switch (beagle_rev) {
-	case 7:
-		printk(KERN_INFO "OMAP3 Beagle Rev: Ax/Bx\n");
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_AXBX;
-		break;
-	case 6:
-		printk(KERN_INFO "OMAP3 Beagle Rev: C1/C2/C3\n");
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_C1_3;
-		break;
-	case 5:
-		printk(KERN_INFO "OMAP3 Beagle Rev: C4\n");
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_C4;
-		break;
-	case 2:
-		printk(KERN_INFO "OMAP3 Beagle Rev: xM C\n");
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_XMC;
-		break;
-	case 0:
-		printk(KERN_INFO "OMAP3 Beagle Rev: xM\n");
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_XM;
-		break;
-	default:
-		printk(KERN_INFO "OMAP3 Beagle Rev: unknown %hd\n", beagle_rev);
-		omap3_beagle_version = OMAP3BEAGLE_BOARD_UNKN;
-	}
-
-	return;
-
-fail2:
-	gpio_free(172);
-fail1:
-	gpio_free(171);
-fail0:
-	printk(KERN_ERR "Unable to get revision detection GPIO pins\n");
-	omap3_beagle_version = OMAP3BEAGLE_BOARD_UNKN;
-
-	return;
-}
-
-static struct mtd_partition omap3beagle_nand_partitions[] = {
+static struct mtd_partition panther_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
 		.name		= "X-Loader",
@@ -239,29 +148,29 @@ static struct mtd_partition omap3beagle_nand_partitions[] = {
 	{
 		.name		= "U-Boot",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size		= 15 * NAND_BLOCK_SIZE,
+		.size		= 10 * NAND_BLOCK_SIZE,
 		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
 	},
 	{
 		.name		= "U-Boot Env",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x260000 */
-		.size		= 1 * NAND_BLOCK_SIZE,
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x1c0000 */
+		.size		= 6 * NAND_BLOCK_SIZE,
 	},
 	{
 		.name		= "Kernel",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
-		.size		= 32 * NAND_BLOCK_SIZE,
+		.size		= 40 * NAND_BLOCK_SIZE,
 	},
 	{
 		.name		= "File System",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x680000 */
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x780000 */
 		.size		= MTDPART_SIZ_FULL,
 	},
 };
 
 /* DSS */
 
-static int beagle_enable_dvi(struct omap_dss_device *dssdev)
+static int panther_enable_dvi(struct omap_dss_device *dssdev)
 {
 	if (gpio_is_valid(dssdev->reset_gpio))
 		gpio_set_value(dssdev->reset_gpio, 1);
@@ -269,65 +178,69 @@ static int beagle_enable_dvi(struct omap_dss_device *dssdev)
 	return 0;
 }
 
-static void beagle_disable_dvi(struct omap_dss_device *dssdev)
+static void panther_disable_dvi(struct omap_dss_device *dssdev)
 {
 	if (gpio_is_valid(dssdev->reset_gpio))
 		gpio_set_value(dssdev->reset_gpio, 0);
 }
 
-static struct omap_dss_device beagle_dvi_device = {
+static struct omap_dss_device panther_dvi_device = {
 	.type = OMAP_DISPLAY_TYPE_DPI,
 	.name = "dvi",
 	.driver_name = "generic_panel",
 	.phy.dpi.data_lines = 24,
 	.reset_gpio = -EINVAL,
-	.platform_enable = beagle_enable_dvi,
-	.platform_disable = beagle_disable_dvi,
+	.platform_enable = panther_enable_dvi,
+	.platform_disable = panther_disable_dvi,
 };
 
-static struct omap_dss_device beagle_tv_device = {
+static struct omap_dss_device panther_tv_device = {
 	.name = "tv",
 	.driver_name = "venc",
 	.type = OMAP_DISPLAY_TYPE_VENC,
 	.phy.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
 };
 
-static struct omap_dss_device *beagle_dss_devices[] = {
-	&beagle_dvi_device,
-	&beagle_tv_device,
+static struct omap_dss_device *panther_dss_devices[] = {
+	&panther_dvi_device,
+	&panther_tv_device,
 };
 
-static struct omap_dss_board_info beagle_dss_data = {
-	.num_devices = ARRAY_SIZE(beagle_dss_devices),
-	.devices = beagle_dss_devices,
-	.default_device = &beagle_dvi_device,
+static struct omap_dss_board_info panther_dss_data = {
+	.num_devices = ARRAY_SIZE(panther_dss_devices),
+	.devices = panther_dss_devices,
+	.default_device = &panther_dvi_device,
 };
 
-static struct platform_device beagle_dss_device = {
+static struct platform_device panther_dss_device = {
 	.name          = "omapdss",
 	.id            = -1,
 	.dev            = {
-		.platform_data = &beagle_dss_data,
+		.platform_data = &panther_dss_data,
 	},
 };
 
-static struct regulator_consumer_supply beagle_vdac_supply =
+static struct regulator_consumer_supply panther_vdac_supply =
 	REGULATOR_SUPPLY("vdda_dac", "omapdss");
 
-static struct regulator_consumer_supply beagle_vdvi_supply =
+static struct regulator_consumer_supply panther_vdvi_supply =
 	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
 
-static void __init beagle_display_init(void)
+static void __init panther_display_init(void)
 {
 	int r;
 
-	r = gpio_request(beagle_dvi_device.reset_gpio, "DVI reset");
+	/* DVI */
+	panther_dvi_device.reset_gpio = 129;
+	omap_mux_init_gpio(panther_dvi_device.reset_gpio, OMAP_PIN_INPUT);
+
+	r = gpio_request(panther_dvi_device.reset_gpio, "DVI reset");
 	if (r < 0) {
 		printk(KERN_ERR "Unable to get DVI reset GPIO\n");
 		return;
 	}
 
-	gpio_direction_output(beagle_dvi_device.reset_gpio, 0);
+	gpio_direction_output(panther_dvi_device.reset_gpio, 0);
 }
 
 #include "sdram-micron-mt46h32m32lf-6.h"
@@ -341,105 +254,62 @@ static struct omap2_hsmmc_info mmc[] = {
 	{}	/* Terminator */
 };
 
-static struct regulator_consumer_supply beagle_vmmc1_supply = {
+static struct regulator_consumer_supply panther_vmmc1_supply = {
 	.supply			= "vmmc",
 };
 
-static struct regulator_consumer_supply beagle_vsim_supply = {
+// This regulator has been enaled in u-boot. The following code is removed since we don't need to control it in kernel.
+#if 0
+static struct regulator_consumer_supply panther_vsim_supply = {
+// Rename regulator's name from "vmmc_aux" to "vsim" to avoid unnecessary operations in "<ROWBOAT_ANDROID>/kernel/drivers/host/omap_hsmmc.c".
+#if 0
 	.supply			= "vmmc_aux",
+#else
+	.supply			= "vsim",
+#endif
 };
+#endif
 
-static struct regulator_consumer_supply beagle_vaux3_supply = {
+static struct regulator_consumer_supply panther_vaux3_supply = {
 	.supply         = "cam_1v8",
 };
 
-static struct regulator_consumer_supply beagle_vaux4_supply = {
+static struct regulator_consumer_supply panther_vaux4_supply = {
 	.supply         = "cam_2v8",
 };
 
 static struct gpio_led gpio_leds[];
 
-static int beagle_twl_gpio_setup(struct device *dev,
+static int panther_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
-		mmc[0].gpio_wp = -EINVAL;
-	} else if ((omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_C1_3) ||
-		(omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_C4)) {
-		omap_mux_init_gpio(23, OMAP_PIN_INPUT);
-		mmc[0].gpio_wp = 23;
-	} else {
-		omap_mux_init_gpio(29, OMAP_PIN_INPUT);
-	}
+	mmc[0].gpio_wp = -EINVAL;
+
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
 	mmc[0].gpio_cd = gpio + 0;
 	omap2_hsmmc_init(mmc);
 
 	/* link regulators to MMC adapters */
-	beagle_vmmc1_supply.dev = mmc[0].dev;
-	beagle_vsim_supply.dev = mmc[0].dev;
+	panther_vmmc1_supply.dev = mmc[0].dev;
+	// VSIM isn't a part of MMC1's system.
+	//panther_vsim_supply.dev = mmc[0].dev;
 
-	/* REVISIT: need ehci-omap hooks for external VBUS
-	 * power switch and overcurrent detect
-	 */
-	if (omap3_beagle_get_rev() != OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
-		gpio_request(gpio + 1, "EHCI_nOC");
-		gpio_direction_input(gpio + 1);
-	}
+	// Move to panther_display_init()
+	/* DVI reset GPIO */
+	//panther_dvi_device.reset_gpio = 129;
 
-	/*
-	 * TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, XM active
-	 * high / others active low)
-	 */
+	/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
 	gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-	gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM)
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
-	else
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
+	gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
 
-	/* DVI reset GPIO is different between beagle revisions */
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC)
-		beagle_dvi_device.reset_gpio = 129;
-	else
-		beagle_dvi_device.reset_gpio = 170;
-
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM) {
-		/* Power on camera interface */
-		gpio_request(gpio + 2, "CAM_EN");
-		gpio_direction_output(gpio + 2, 1);
-
-		/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
-		gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
-	} else {
-		gpio_request(gpio + 1, "EHCI_nOC");
-		gpio_direction_input(gpio + 1);
-
-		/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
-		gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
-		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
-	}
-	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
-	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-
-	/*
-	 * gpio + 1 on Xm controls the TFP410's enable line (active low)
-	 * gpio + 2 control varies depending on the board rev as follows:
-	 * P7/P8 revisions(prototype): Camera EN
-	 * A2+ revisions (production): LDO (supplies DVI, serial, led blocks)
-	 */
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
-		gpio_request(gpio + 1, "nDVI_PWR_EN");
-		gpio_direction_output(gpio + 1, 0);
-		gpio_request(gpio + 2, "DVI_LDO_EN");
-		gpio_direction_output(gpio + 2, 1);
-	}
+	/* gpio + 1 on Panther controls the TFP410's enable line (active low) */
+	gpio_request(gpio + 1, "nDVI_PWR_EN");
+	gpio_direction_output(gpio + 1, 0);
 
 	return 0;
 }
 
-static struct twl4030_gpio_platform_data beagle_gpio_data = {
+static struct twl4030_gpio_platform_data panther_gpio_data = {
 	.gpio_base	= OMAP_MAX_GPIO_LINES,
 	.irq_base	= TWL4030_GPIO_IRQ_BASE,
 	.irq_end	= TWL4030_GPIO_IRQ_END,
@@ -447,11 +317,11 @@ static struct twl4030_gpio_platform_data beagle_gpio_data = {
 	.pullups	= BIT(1),
 	.pulldowns	= BIT(2) | BIT(6) | BIT(7) | BIT(8) | BIT(13)
 				| BIT(15) | BIT(16) | BIT(17),
-	.setup		= beagle_twl_gpio_setup,
+	.setup		= panther_twl_gpio_setup,
 };
 
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
-static struct regulator_init_data beagle_vmmc1 = {
+static struct regulator_init_data panther_vmmc1 = {
 	.constraints = {
 		.min_uV			= 1850000,
 		.max_uV			= 3150000,
@@ -462,11 +332,13 @@ static struct regulator_init_data beagle_vmmc1 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vmmc1_supply,
+	.consumer_supplies	= &panther_vmmc1_supply,
 };
 
-/* VSIM for MMC1 pins DAT4..DAT7 (2 mA, plus card == max 50 mA) */
-static struct regulator_init_data beagle_vsim = {
+// VSIM is not used by pantherboard right now.
+#if 0
+/* VSIM for GPIO_126,GPIO_127 & GPIO_129 */
+static struct regulator_init_data panther_vsim = {
 	.constraints = {
 		.min_uV			= 1800000,
 		.max_uV			= 3000000,
@@ -477,11 +349,12 @@ static struct regulator_init_data beagle_vsim = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vsim_supply,
+	.consumer_supplies	= &panther_vsim_supply,
 };
+#endif
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
-static struct regulator_init_data beagle_vdac = {
+static struct regulator_init_data panther_vdac = {
 	.constraints = {
 		.min_uV			= 1800000,
 		.max_uV			= 1800000,
@@ -491,11 +364,11 @@ static struct regulator_init_data beagle_vdac = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vdac_supply,
+	.consumer_supplies	= &panther_vdac_supply,
 };
 
 /* VPLL2 for digital video outputs */
-static struct regulator_init_data beagle_vpll2 = {
+static struct regulator_init_data panther_vpll2 = {
 	.constraints = {
 		.name			= "VDVI",
 		.min_uV			= 1800000,
@@ -506,11 +379,11 @@ static struct regulator_init_data beagle_vpll2 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &beagle_vdvi_supply,
+	.consumer_supplies	= &panther_vdvi_supply,
 };
 
 /* VAUX3 for CAM_1V8 */
-static struct regulator_init_data beagle_vaux3 = {
+static struct regulator_init_data panther_vaux3 = {
 	.constraints = {
 		.min_uV                 = 1800000,
 		.max_uV                 = 1800000,
@@ -521,11 +394,11 @@ static struct regulator_init_data beagle_vaux3 = {
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &beagle_vaux3_supply,
+	.consumer_supplies      = &panther_vaux3_supply,
 };
 
  /* VAUX4 for CAM_2V8 */
-static struct regulator_init_data beagle_vaux4 = {
+static struct regulator_init_data panther_vaux4 = {
 	.constraints = {
 		.min_uV                 = 1800000,
 		.max_uV                 = 1800000,
@@ -536,14 +409,14 @@ static struct regulator_init_data beagle_vaux4 = {
 			| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &beagle_vaux4_supply,
+	.consumer_supplies      = &panther_vaux4_supply,
 };
 
-static struct twl4030_usb_data beagle_usb_data = {
+static struct twl4030_usb_data panther_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
 };
 
-static struct twl4030_codec_audio_data beagle_audio_data = {
+static struct twl4030_codec_audio_data panther_audio_data = {
 	.audio_mclk = 26000000,
 	.digimic_delay = 1,
 	.ramp_delay_value = 1,
@@ -553,73 +426,78 @@ static struct twl4030_codec_audio_data beagle_audio_data = {
 	.reset_registers = false,
 };
 
-static struct twl4030_codec_data beagle_codec_data = {
+static struct twl4030_codec_data panther_codec_data = {
 	.audio_mclk = 26000000,
-	.audio = &beagle_audio_data,
+	.audio = &panther_audio_data,
 };
 
-static struct twl4030_platform_data beagle_twldata = {
+static struct twl4030_platform_data panther_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
-	.usb		= &beagle_usb_data,
-	.gpio		= &beagle_gpio_data,
-	.codec		= &beagle_codec_data,
-	.vmmc1		= &beagle_vmmc1,
-	.vsim		= &beagle_vsim,
-	.vdac		= &beagle_vdac,
-	.vpll2		= &beagle_vpll2,
-	.vaux3		= &beagle_vaux3,
-	.vaux4		= &beagle_vaux4,
+	.usb		= &panther_usb_data,
+	.gpio		= &panther_gpio_data,
+	.codec		= &panther_codec_data,
+// The following table shows the relationship of pantherboard's regulators.
+//
+//	[LDO NAME]	[SCHEMATIC SYMBOLE]	[CONNECTED DEVICE (Outer/Inner)]
+//	VPLL2		VDD_MIC		None / DSI, CSIPHY2
+//	VMMC1		VDD_MMC1		Micro SD / None
+//	VMMC2		VMMC2			None / Nnoe
+//	VAUX1		CAM_ANA		None / None
+//	VAUX2		EXP_VDD		USB PHY / None
+//	VAUX3		CAM_DIGITAL		Camera Module / None
+//	VAUX4		CAM_IO			Camera Module / None
+// ========== Listed below are the regulators which used inside AP module ==========
+//	VDAC		None			None / Video Buffer, DAC(S-Video & CVBS)
+//	VPLL1		None			None / DPLL, DLL
+//	VMIC1		None			None / Unknown
+//	VMIC2		None			None / Unknown
+//	VSIM		None			None / GPIO_126, GPIO127, GPIO_129
+	.vmmc1		= &panther_vmmc1,
+// VSIM is not used by pantherboard right now.
+#if 0
+	.vsim		= &panther_vsim,
+#endif
+	.vdac		= &panther_vdac,
+	.vpll2		= &panther_vpll2,
+	.vaux3		= &panther_vaux3,
+	.vaux4		= &panther_vaux4,
 };
 
-static struct i2c_board_info __initdata beagle_i2c_boardinfo[] = {
+static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
 		.flags = I2C_CLIENT_WAKE,
 		.irq = INT_34XX_SYS_NIRQ,
-		.platform_data = &beagle_twldata,
+		.platform_data = &panther_twldata,
 	},
 };
 
-static struct i2c_board_info __initdata beagle_i2c_eeprom[] = {
+static struct i2c_board_info __initdata panther_i2c_eeprom[] = {
        {
                I2C_BOARD_INFO("eeprom", 0x50),
        },
 };
 
-static int __init omap3_beagle_i2c_init(void)
+static int __init panther_i2c_init(void)
 {
-	omap_register_i2c_bus(1, 2600, beagle_i2c_boardinfo,
-			ARRAY_SIZE(beagle_i2c_boardinfo));
+	omap_register_i2c_bus(1, 2600, panther_i2c_boardinfo,
+			ARRAY_SIZE(panther_i2c_boardinfo));
 
 	/* Bus 2 is used for Camera/Sensor interface */
 	omap_register_i2c_bus(2, 400, NULL, 0);
 
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
-	omap_register_i2c_bus(3, 100, beagle_i2c_eeprom, ARRAY_SIZE(beagle_i2c_eeprom));
+	omap_register_i2c_bus(3, 100, panther_i2c_eeprom, ARRAY_SIZE(panther_i2c_eeprom));
 
 	return 0;
 }
 
 static struct gpio_led gpio_leds[] = {
-	{
-		.name			= "beagleboard::usr0",
-		.default_trigger	= "heartbeat",
-		.gpio			= 150,
-	},
-	{
-		.name			= "beagleboard::usr1",
-		.default_trigger	= "mmc0",
-		.gpio			= 149,
-	},
-	{
-		.name			= "beagleboard::pmu_stat",
-		.gpio			= -EINVAL,	/* gets replaced */
-		.active_low		= true,
-	},
+// Pantherboard's leds aren't driven by GPIOs (except for D701(USB Active)).
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
@@ -636,10 +514,15 @@ static struct platform_device leds_gpio = {
 };
 
 static struct gpio_keys_button gpio_buttons[] = {
+// Jack_20110907: defined the buttons on Chipsee's expansion board
+//	To see the definitions of SCANCODE and KEYCODE, please refer to
+//		-- <ROWBOAT_ANDROID>/kernel/include/linux/input.h
+//		-- <ROWBOAT_ANDROID>/sdk/emulators/keymaps/qwerty.kl
 	{
-		.code			= BTN_EXTRA,
-		.gpio			= 7,
+		.code			= KEY_PROG1,
+		.gpio			= 4,
 		.desc			= "user",
+		.active_low		= false,
 		.wakeup			= 1,
 	},
 };
@@ -657,7 +540,7 @@ static struct platform_device keys_gpio = {
 	},
 };
 
-static void __init omap3_beagle_init_irq(void)
+static void __init panther_init_irq(void)
 {
 	omap2_init_common_infrastructure();
 	omap2_init_common_devices(mt46h32m32lf6_sdrc_params,
@@ -665,21 +548,18 @@ static void __init omap3_beagle_init_irq(void)
 	omap_init_irq();
 	gpmc_init();
 #ifdef CONFIG_OMAP_32K_TIMER
-	if (omap3_beagle_version == OMAP3BEAGLE_BOARD_AXBX)
-		omap2_gp_clockevent_set_gptimer(12);
-	else
-		omap2_gp_clockevent_set_gptimer(1);
+	omap2_gp_clockevent_set_gptimer(1);
 #endif
 }
 
-static struct platform_device *omap3_beagle_devices[] __initdata = {
+static struct platform_device *panther_devices[] __initdata = {
 	&leds_gpio,
 	&keys_gpio,
-	&beagle_dss_device,
+	&panther_dss_device,
 	&usb_mass_storage_device,
 };
 
-static void __init omap3beagle_flash_init(void)
+static void __init panther_flash_init(void)
 {
 	u8 cs = 0;
 	u8 nandcs = GPMC_CS_NUM + 1;
@@ -705,21 +585,21 @@ static void __init omap3beagle_flash_init(void)
 
 	if (nandcs < GPMC_CS_NUM) {
 		printk(KERN_INFO "Registering NAND on CS%d\n", nandcs);
-		board_nand_init(omap3beagle_nand_partitions,
-			ARRAY_SIZE(omap3beagle_nand_partitions),
+		board_nand_init(panther_nand_partitions,
+			ARRAY_SIZE(panther_nand_partitions),
 			nandcs, NAND_BUSWIDTH_16);
 	}
 }
 
 static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
-	.port_mode[0] = EHCI_HCD_OMAP_MODE_PHY,
+	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 	.port_mode[1] = EHCI_HCD_OMAP_MODE_PHY,
 	.port_mode[2] = EHCI_HCD_OMAP_MODE_UNKNOWN,
 
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = -EINVAL,
-	.reset_gpio_port[1]  = 147,
+	.reset_gpio_port[1]  = 39,
 	.reset_gpio_port[2]  = -EINVAL
 };
 
@@ -735,31 +615,25 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
-static void __init omap3_beagle_init(void)
+static void __init panther_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
-	omap3_beagle_init_rev();
-	omap3_beagle_i2c_init();
-	platform_add_devices(omap3_beagle_devices,
-			ARRAY_SIZE(omap3_beagle_devices));
+	panther_i2c_init();
+	platform_add_devices(panther_devices,
+			ARRAY_SIZE(panther_devices));
 	omap_serial_init();
-
-	omap_mux_init_gpio(170, OMAP_PIN_INPUT);
-	gpio_request(170, "DVI_nPD");
-	/* REVISIT leave DVI powered down until it's needed ... */
-	gpio_direction_output(170, true);
 
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
-	omap3beagle_flash_init();
+	panther_flash_init();
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
-	beagle_display_init();
+	panther_display_init();
 #ifdef CONFIG_USB_ANDROID
-	omap3evm_android_gadget_init();
+	panther_android_gadget_init();
 #endif
 }
 
@@ -768,7 +642,7 @@ MACHINE_START(PANTHER, "Panther Board")
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,
-	.init_irq	= omap3_beagle_init_irq,
-	.init_machine	= omap3_beagle_init,
+	.init_irq	= panther_init_irq,
+	.init_machine	= panther_init,
 	.timer		= &omap_timer,
 MACHINE_END

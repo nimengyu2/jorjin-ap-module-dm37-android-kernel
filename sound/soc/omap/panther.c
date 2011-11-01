@@ -34,7 +34,7 @@
 #include "omap-mcbsp.h"
 #include "omap-pcm.h"
 
-static int omap3beagle_hw_params(struct snd_pcm_substream *substream,
+static int panther_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -83,48 +83,50 @@ static int omap3beagle_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static struct snd_soc_ops omap3beagle_ops = {
-	.hw_params = omap3beagle_hw_params,
+static struct snd_soc_ops panther_ops = {
+	.hw_params = panther_hw_params,
 };
 
 /* Digital audio interface glue - connects codec <--> CPU */
-static struct snd_soc_dai_link omap3beagle_dai = {
+static struct snd_soc_dai_link panther_dai[] = {
+{
 	.name = "TWL4030",
 	.stream_name = "TWL4030",
 	.cpu_dai_name = "omap-mcbsp-dai.1",
 	.platform_name = "omap-pcm-audio",
 	.codec_dai_name = "twl4030-hifi",
 	.codec_name = "twl4030-codec",
-	.ops = &omap3beagle_ops,
+	.ops = &panther_ops,
+},
 };
 
 /* Audio machine driver */
-static struct snd_soc_card snd_soc_omap3beagle = {
-	.name = "omap3beagle",
+static struct snd_soc_card snd_soc_panther = {
+	.name = "panther",
 	.owner = THIS_MODULE,
-	.dai_link = &omap3beagle_dai,
-	.num_links = 1,
+	.dai_link = panther_dai,
+	.num_links = ARRAY_SIZE(panther_dai),
 };
 
-static struct platform_device *omap3beagle_snd_device;
+static struct platform_device *panther_snd_device;
 
-static int __init omap3beagle_soc_init(void)
+static int __init panther_soc_init(void)
 {
 	int ret;
 
 	if (!machine_is_panther())
 		return -ENODEV;
-	pr_info("OMAP3 Beagle/Devkit8000 SoC init\n");
+	pr_info("Panther SoC init\n");
 
-	omap3beagle_snd_device = platform_device_alloc("soc-audio", -1);
-	if (!omap3beagle_snd_device) {
+	panther_snd_device = platform_device_alloc("soc-audio", -1);
+	if (!panther_snd_device) {
 		printk(KERN_ERR "Platform device allocation failed\n");
 		return -ENOMEM;
 	}
 
-	platform_set_drvdata(omap3beagle_snd_device, &snd_soc_omap3beagle);
+	platform_set_drvdata(panther_snd_device, &snd_soc_panther);
 
-	ret = platform_device_add(omap3beagle_snd_device);
+	ret = platform_device_add(panther_snd_device);
 	if (ret)
 		goto err1;
 
@@ -132,19 +134,19 @@ static int __init omap3beagle_soc_init(void)
 
 err1:
 	printk(KERN_ERR "Unable to add platform device\n");
-	platform_device_put(omap3beagle_snd_device);
+	platform_device_put(panther_snd_device);
 
 	return ret;
 }
 
-static void __exit omap3beagle_soc_exit(void)
+static void __exit panther_soc_exit(void)
 {
-	platform_device_unregister(omap3beagle_snd_device);
+	platform_device_unregister(panther_snd_device);
 }
 
-module_init(omap3beagle_soc_init);
-module_exit(omap3beagle_soc_exit);
+module_init(panther_soc_init);
+module_exit(panther_soc_exit);
 
 MODULE_AUTHOR("Steve Sakoman <steve@sakoman.com>");
-MODULE_DESCRIPTION("ALSA SoC OMAP3 Beagle");
+MODULE_DESCRIPTION("ALSA SoC Panther");
 MODULE_LICENSE("GPL");

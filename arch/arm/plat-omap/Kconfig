@@ -123,7 +123,7 @@ config DEBUG_SR_CLASS2
 config OMAP_MUX
 	bool "OMAP multiplexing support"
 	depends on ARCH_OMAP
-	default n
+	default y
 	help
 	  Pin multiplexing support for OMAP boards. If your bootloader
 	  sets the multiplexing correctly, say N. Otherwise, or if unsure,
