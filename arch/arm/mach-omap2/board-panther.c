@@ -52,6 +52,11 @@
 #include <plat/nand.h>
 #include <plat/usb.h>
 
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+#include <linux/wl12xx.h>
+#include <linux/regulator/fixed.h>
+#endif
+
 #include "mux.h"
 #include "hsmmc.h"
 #include "timer-gp.h"
@@ -376,12 +381,62 @@ static struct omap2_hsmmc_info mmc[] = {
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
 		.gpio_wp	= 29,
 	},
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+	{
+	.name           = "wl1271",
+	.mmc            = 2,
+	.caps           = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
+	.gpio_wp        = -EINVAL,
+	.gpio_cd        = -EINVAL,
+	.nonremovable   = true,
+	},
+#endif
 	{}	/* Terminator */
 };
 
 static struct regulator_consumer_supply panther_vmmc1_supply = {
 	.supply			= "vmmc",
 };
+
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+
+#define BEAGLE_WLAN_PMENA_GPIO       (16)
+#define BEAGLE_WLAN_IRQ_GPIO         (112)
+
+static struct regulator_consumer_supply beagle_vmmc2_supply =
+	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1");
+
+/* VMMC2 for driving the WL12xx module */
+static struct regulator_init_data beagle_vmmc2 = {
+	.constraints = {
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies  = 1,
+	.consumer_supplies = &beagle_vmmc2_supply,
+};
+
+static struct fixed_voltage_config beagle_vwlan = {
+	.supply_name            = "vwl1271",
+	.microvolts             = 1800000, /* 1.80V */
+	.gpio                   = BEAGLE_WLAN_PMENA_GPIO,
+	.startup_delay          = 70000, /* 70ms */
+	.enable_high            = 1,
+	.enabled_at_boot        = 0,
+	.init_data              = &beagle_vmmc2,
+};
+
+static struct platform_device beagle_wlan_regulator = {
+	.name           = "reg-fixed-voltage",
+	.id             = 1,
+	.dev = {
+		.platform_data  = &beagle_vwlan,
+	},
+};
+struct wl12xx_platform_data beagle_wlan_data __initdata = {
+    .irq = OMAP_GPIO_IRQ(BEAGLE_WLAN_IRQ_GPIO),
+    .board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+};
+#endif
 
 // This regulator has been enaled in u-boot. The following code is removed since we don't need to control it in kernel.
 #if 0
@@ -749,6 +804,21 @@ static struct omap_board_mux board_mux[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
 #endif
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+    /* WLAN IRQ - GPIO 112 */
+    OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+
+    /* WLAN POWER ENABLE - GPIO 16 */
+    OMAP3_MUX(ETK_D2, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+
+    /* MMC2 SDIO pin muxes for WL12xx */
+    OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+    OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+    OMAP3_MUX(SDMMC2_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+    OMAP3_MUX(SDMMC2_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+    OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+    OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+#endif
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
 #endif
@@ -784,6 +854,13 @@ static void __init panther_init(void)
 	panther_display_init();
 #ifdef CONFIG_USB_ANDROID
 	panther_android_gadget_init();
+#endif
+
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+	/* WL12xx WLAN Init */
+	if (wl12xx_set_platform_data(&beagle_wlan_data))
+		pr_err("error setting wl12xx data\n");
+	platform_device_register(&beagle_wlan_regulator);
 #endif
 }
 
