@@ -27,6 +27,12 @@
 #include <mach/gpio.h>
 
 #include <media/mt9v113.h>
+#ifdef CONFIG_VIDEO_OV5640
+#include <media/ov5640.h>
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+#include <media/mt9t111.h>
+#endif
 
 #include <../drivers/media/video/isp/isp.h>
 
@@ -35,27 +41,33 @@
 #define CAM_USE_XCLKA			0
 #define LEOPARD_RESET_GPIO		98
 
-static struct regulator *beagle_1v8;
-static struct regulator *beagle_2v8;
+static struct regulator *panther_cam_digital;
+static struct regulator *panther_cam_io;
 
-static int beagle_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
+#ifdef CONFIG_VIDEO_MT9V113
+static int panther_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
-	if (!beagle_1v8 || !beagle_2v8) {
+	if (!panther_cam_digital || !panther_cam_io) {
 		dev_err(isp->dev, "No regulator available\n");
 		return -ENODEV;
 	}
 	if (on) {
+		/* Check Voltage-Levels */
+		if (regulator_get_voltage(panther_cam_digital) != 1800000)
+			regulator_set_voltage(panther_cam_digital, 1800000, 1800000);
+		if (regulator_get_voltage(panther_cam_io) != 1800000)
+			regulator_set_voltage(panther_cam_io, 1800000, 1800000);
 		/*
 		 * Power Up Sequence
 		 */
 		/* Set RESET_BAR to 0 */
 		gpio_set_value(LEOPARD_RESET_GPIO, 0);
 		/* Turn on VDD */
-		regulator_enable(beagle_1v8);
+		regulator_enable(panther_cam_digital);
 		mdelay(1);
-		regulator_enable(beagle_2v8);
+		regulator_enable(panther_cam_io);
 
 		mdelay(50);
 		/* Enable EXTCLK */
@@ -77,10 +89,10 @@ static int beagle_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 		/*
 		 * Power Down Sequence
 		 */
-		if (regulator_is_enabled(beagle_1v8))
-			regulator_disable(beagle_1v8);
-		if (regulator_is_enabled(beagle_2v8))
-			regulator_disable(beagle_2v8);
+		if (regulator_is_enabled(panther_cam_digital))
+			regulator_disable(panther_cam_digital);
+		if (regulator_is_enabled(panther_cam_io))
+			regulator_disable(panther_cam_io);
 
 		if (isp->platform_cb.set_xclk)
 			isp->platform_cb.set_xclk(isp, 0, CAM_USE_XCLKA);
@@ -88,8 +100,132 @@ static int beagle_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 
 	return 0;
 }
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+#define POWER_DOWN_GPIO 167
+static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
-static int beagle_mt9v113_configure_interface(struct v4l2_subdev *subdev,
+	if (!panther_cam_digital || !panther_cam_io) {
+		dev_err(isp->dev, "No regulator available\n");
+		return -ENODEV;
+	}
+	if (on) {
+		/* Check Voltage-Levels */
+		if (regulator_get_voltage(panther_cam_digital) != 1500000)
+			regulator_set_voltage(panther_cam_digital, 1500000, 1500000);
+		if (regulator_get_voltage(panther_cam_io) != 1800000)
+			regulator_set_voltage(panther_cam_io, 1800000, 1800000);
+		/* Request POWER_DOWN_GPIO and set to output */
+		gpio_request(POWER_DOWN_GPIO, "CAM_PWRDN");
+		gpio_direction_output(POWER_DOWN_GPIO, true);
+		/*
+		 * Power Up Sequence
+		 */
+		/* Set POWER_DOWN to 1 */
+		gpio_set_value(POWER_DOWN_GPIO, 1);
+		/* Set RESET_BAR to 0 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 0);
+		/* Turn on VDD */
+		regulator_enable(panther_cam_io);
+		mdelay(1);
+		regulator_enable(panther_cam_digital);
+
+		mdelay(50);
+		/* Enable EXTCLK */
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 24000000, CAM_USE_XCLKA);
+		/*
+		 * Wait at least 70 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 70) / 24000000) = aprox 3 us.
+		 */
+		udelay(3);
+		/* Set RESET_BAR to 1 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 1);
+		/* Set POWER_DOWN to 0 */
+		gpio_set_value(POWER_DOWN_GPIO, 0);
+		/*
+		 * Wait at least 100 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 100) / 24000000) = aprox 5 us.
+		 */
+		udelay(5);
+	} else {
+		/*
+		 * Power Down Sequence
+		 */
+		if (regulator_is_enabled(panther_cam_digital))
+			regulator_disable(panther_cam_digital);
+		if (regulator_is_enabled(panther_cam_io))
+			regulator_disable(panther_cam_io);
+
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 0, CAM_USE_XCLKA);
+	}
+
+	return 0;
+}
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+static int panther_mt9t111_s_power(struct v4l2_subdev *subdev, int on)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
+
+	if (!panther_cam_digital || !panther_cam_io) {
+		dev_err(isp->dev, "No regulator available\n");
+		return -ENODEV;
+	}
+	if (on) {
+		/* Check Voltage-Levels */
+		if (regulator_get_voltage(panther_cam_digital) != 1800000)
+			regulator_set_voltage(panther_cam_digital, 1800000, 1800000);
+		if (regulator_get_voltage(panther_cam_io) != 1800000)
+			regulator_set_voltage(panther_cam_io, 1800000, 1800000);
+		/*
+		 * Power Up Sequence
+		 */
+		/* Set RESET_BAR to 0 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 0);
+		/* Turn on VDD */
+		regulator_enable(panther_cam_digital);
+		mdelay(1);
+		regulator_enable(panther_cam_io);
+
+		mdelay(50);
+		/* Enable EXTCLK */
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 24000000, CAM_USE_XCLKA);
+		/*
+		 * Wait at least 70 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 70) / 24000000) = aprox 3 us.
+		 */
+		udelay(3);
+		/* Set RESET_BAR to 1 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 1);
+		/*
+		 * Wait at least 100 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 100) / 24000000) = aprox 5 us.
+		 */
+		udelay(5);
+	} else {
+		/*
+		 * Power Down Sequence
+		 */
+		if (regulator_is_enabled(panther_cam_digital))
+			regulator_disable(panther_cam_digital);
+		if (regulator_is_enabled(panther_cam_io))
+			regulator_disable(panther_cam_io);
+
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 0, CAM_USE_XCLKA);
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_VIDEO_MT9V113
+static int panther_mt9v113_configure_interface(struct v4l2_subdev *subdev,
 					      u32 pixclk)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
@@ -99,106 +235,217 @@ static int beagle_mt9v113_configure_interface(struct v4l2_subdev *subdev,
 
 	return 0;
 }
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+static int panther_ov5640_configure_interface(struct v4l2_subdev *subdev,
+					      u32 pixclk)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
-static struct mt9v113_platform_data beagle_mt9v113_platform_data = {
-	.s_power		= beagle_mt9v113_s_power,
-	.configure_interface	= beagle_mt9v113_configure_interface,
-};
+	if (isp->platform_cb.set_pixel_clock)
+		isp->platform_cb.set_pixel_clock(isp, pixclk);
 
+	return 0;
+}
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+static int panther_mt9t111_configure_interface(struct v4l2_subdev *subdev,
+					      u32 pixclk)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
-#ifdef CONFIG_MACH_FLASHBOARD
-#define MT9V113_I2C_BUS_NUM		3
-#else
-#define MT9V113_I2C_BUS_NUM		2
+	if (isp->platform_cb.set_pixel_clock)
+		isp->platform_cb.set_pixel_clock(isp, pixclk);
+
+	return 0;
+}
 #endif
 
-static struct i2c_board_info beagle_camera_i2c_devices[] = {
+#ifdef CONFIG_VIDEO_MT9V113
+static struct mt9v113_platform_data panther_mt9v113_platform_data = {
+	.s_power		= panther_mt9v113_s_power,
+	.configure_interface	= panther_mt9v113_configure_interface,
+};
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+static struct ov5640_platform_data panther_ov5640_platform_data = {
+	.s_power		= panther_ov5640_s_power,
+	.configure_interface	= panther_ov5640_configure_interface,
+};
+#endif
+#ifdef CONFIG_VIDEO_MT9P111
+static struct mt9p111_platform_data panther_mt9p111_platform_data = {
+	.s_power		= panther_mt9p111_s_power,
+	.configure_interface	= panther_mt9p111_configure_interface,
+};
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+static struct mt9t111_platform_data panther_mt9t111_platform_data = {
+	.s_power		= panther_mt9t111_s_power,
+	.configure_interface	= panther_mt9t111_configure_interface,
+};
+#endif
+
+#define CAMERA_I2C_BUS_NUM		2
+
+#ifdef CONFIG_VIDEO_MT9V113
+static struct i2c_board_info panther_mt9v113_i2c_devices[] = {
 	{
 		I2C_BOARD_INFO(MT9V113_MODULE_NAME, MT9V113_I2C_ADDR),
-		.platform_data = &beagle_mt9v113_platform_data,
+		.platform_data = &panther_mt9v113_platform_data,
 	},
 };
-
-static struct isp_subdev_i2c_board_info beagle_camera_primary_subdevs[] = {
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+static struct i2c_board_info panther_ov5640_i2c_devices[] = {
 	{
-		.board_info = &beagle_camera_i2c_devices[0],
-		.i2c_adapter_id = MT9V113_I2C_BUS_NUM,
+		I2C_BOARD_INFO(OV5640_MODULE_NAME, OV5640_I2C_ADDR),
+		.platform_data = &panther_ov5640_platform_data,
+	},
+};
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+static struct i2c_board_info panther_mt9t111_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO(MT9T111_MODULE_NAME, MT9T111_I2C_ADDR),
+		.platform_data = &panther_mt9t111_platform_data,
+	},
+};
+#endif
+
+#ifdef CONFIG_VIDEO_MT9V113
+static struct isp_subdev_i2c_board_info panther_mt9v113_primary_subdevs[] = {
+	{
+		.board_info = &panther_mt9v113_i2c_devices[0],
+		.i2c_adapter_id = CAMERA_I2C_BUS_NUM,
 	},
 	{ NULL, 0 },
 };
-
-static struct isp_v4l2_subdevs_group beagle_camera_subdevs[] = {
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+static struct isp_subdev_i2c_board_info panther_ov5640_primary_subdevs[] = {
 	{
-		.subdevs = beagle_camera_primary_subdevs,
+		.board_info = &panther_ov5640_i2c_devices[0],
+		.i2c_adapter_id = CAMERA_I2C_BUS_NUM,
+	},
+	{ NULL, 0 },
+};
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+static struct isp_subdev_i2c_board_info panther_mt9t111_primary_subdevs[] = {
+	{
+		.board_info = &panther_mt9t111_i2c_devices[0],
+		.i2c_adapter_id = CAMERA_I2C_BUS_NUM,
+	},
+	{ NULL, 0 },
+};
+#endif
+
+static struct isp_v4l2_subdevs_group panther_camera_subdevs[] = {
+#ifdef CONFIG_VIDEO_MT9V113
+	{
+		.subdevs = panther_mt9v113_primary_subdevs,
 		.interface = ISP_INTERFACE_PARALLEL,
 		.bus = {
 			.parallel = {
 				.data_lane_shift	= 2,
 				.clk_pol		= 0,
+				.hdpol			= 0,
+				.vdpol			= 0,
+				.fldmode		= 0,
 				.bridge			= 3,
 			},
 		},
 	},
+#endif
+#ifdef CONFIG_VIDEO_OV5640
+	{
+		.subdevs = panther_ov5640_primary_subdevs,
+		.interface = ISP_INTERFACE_PARALLEL,
+		.bus = {
+			.parallel = {
+				.data_lane_shift	= 2,
+				.clk_pol		= 0,
+				.hdpol			= 0,
+				.vdpol			= 0,
+				.fldmode		= 0,
+				.bridge			= 3,
+			},
+		},
+	},
+#endif
+#ifdef CONFIG_VIDEO_MT9T111
+	{
+		.subdevs = panther_mt9t111_primary_subdevs,
+		.interface = ISP_INTERFACE_PARALLEL,
+		.bus = {
+			.parallel = {
+				.data_lane_shift	= 2,
+				.clk_pol		= 0,
+				.hdpol			= 0,
+				.vdpol			= 0,
+				.fldmode		= 0,
+				.bridge			= 3,
+			},
+		},
+	},
+#endif
 	{ NULL, 0 },
 };
 
-static struct isp_platform_data beagle_isp_platform_data = {
-	.subdevs = beagle_camera_subdevs,
+static struct isp_platform_data panther_isp_platform_data = {
+	.subdevs = panther_camera_subdevs,
 };
 
-static int __init beagle_cam_init(void)
+static int __init panther_cam_init(void)
 {
 	/*
 	 * Regulator supply required for camera interface
 	 */
-#ifdef CONFIG_MACH_FLASHBOARD
-	beagle_1v8 = regulator_get(NULL, "cam_2v8");
-#else
-	beagle_1v8 = regulator_get(NULL, "cam_1v8");
-#endif
-	if (IS_ERR(beagle_1v8)) {
-		printk(KERN_ERR "cam_1v8 regulator missing\n");
-		return PTR_ERR(beagle_1v8);
+	panther_cam_digital = regulator_get(NULL, "cam_digital");
+	if (IS_ERR(panther_cam_digital)) {
+		printk(KERN_ERR "cam_digital regulator missing\n");
+		return PTR_ERR(panther_cam_digital);
 	}
-	beagle_2v8 = regulator_get(NULL, "cam_2v8");
-	if (IS_ERR(beagle_2v8)) {
-		printk(KERN_ERR "cam_2v8 regulator missing\n");
-		regulator_put(beagle_1v8);
-		return PTR_ERR(beagle_2v8);
+	panther_cam_io = regulator_get(NULL, "cam_io");
+	if (IS_ERR(panther_cam_io)) {
+		printk(KERN_ERR "cam_io regulator missing\n");
+		regulator_put(panther_cam_digital);
+		return PTR_ERR(panther_cam_io);
 	}
 	/*
 	 * Sensor reset GPIO
 	 */
 	if (gpio_request(LEOPARD_RESET_GPIO, "cam_rst") != 0) {
-		printk(KERN_ERR "beagle-cam: Could not request GPIO %d\n",
+		printk(KERN_ERR "panther-cam: Could not request GPIO %d\n",
 				LEOPARD_RESET_GPIO);
-		regulator_put(beagle_1v8);
-		regulator_put(beagle_2v8);
+		regulator_put(panther_cam_digital);
+		regulator_put(panther_cam_io);
 		return -ENODEV;
 	}
 	/* set to output mode */
 	gpio_direction_output(LEOPARD_RESET_GPIO, 0);
 
-	omap3_init_camera(&beagle_isp_platform_data);
+	omap3_init_camera(&panther_isp_platform_data);
 
 	return 0;
 }
 
-static void __exit beagle_cam_exit(void)
+static void __exit panther_cam_exit(void)
 {
-	if (regulator_is_enabled(beagle_1v8))
-		regulator_disable(beagle_1v8);
-	regulator_put(beagle_1v8);
-	if (regulator_is_enabled(beagle_2v8))
-		regulator_disable(beagle_2v8);
-	regulator_put(beagle_2v8);
+	if (regulator_is_enabled(panther_cam_digital))
+		regulator_disable(panther_cam_digital);
+	regulator_put(panther_cam_digital);
+	if (regulator_is_enabled(panther_cam_io))
+		regulator_disable(panther_cam_io);
+	regulator_put(panther_cam_io);
 
 	gpio_free(LEOPARD_RESET_GPIO);
 }
 
-module_init(beagle_cam_init);
-module_exit(beagle_cam_exit);
+module_init(panther_cam_init);
+module_exit(panther_cam_exit);
 
-MODULE_AUTHOR("Texas Instruments");
-MODULE_DESCRIPTION("BeagleXM Camera Module");
+MODULE_AUTHOR("Jorjin Technologies");
+MODULE_DESCRIPTION("Panther Camera Module");
 MODULE_LICENSE("GPL");

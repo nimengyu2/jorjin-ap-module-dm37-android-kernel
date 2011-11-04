@@ -451,11 +451,11 @@ static struct regulator_consumer_supply panther_vsim_supply = {
 #endif
 
 static struct regulator_consumer_supply panther_vaux3_supply = {
-	.supply         = "cam_1v8",
+	.supply         = "cam_digital",
 };
 
 static struct regulator_consumer_supply panther_vaux4_supply = {
-	.supply         = "cam_2v8",
+	.supply         = "cam_io",
 };
 
 static struct gpio_led gpio_leds[];
@@ -562,30 +562,36 @@ static struct regulator_init_data panther_vpll2 = {
 	.consumer_supplies	= &panther_vdvi_supply,
 };
 
-/* VAUX3 for CAM_1V8 */
+/* VAUX3 for CAM_DIGITAL */
 static struct regulator_init_data panther_vaux3 = {
 	.constraints = {
-		.min_uV                 = 1800000,
+		/* CAM_DIGITAL(DVDD) may vary from 1.5v to 1.8v */
+		.min_uV                 = 1500000,
 		.max_uV                 = 1800000,
 		.apply_uV               = true,
 		.valid_modes_mask       = REGULATOR_MODE_NORMAL
 					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask         = REGULATOR_CHANGE_MODE
+		/* Add REGULATOR_CHANGE_VOLTAGE flag to control voltage */
+		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE
 					| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
 	.consumer_supplies      = &panther_vaux3_supply,
 };
 
- /* VAUX4 for CAM_2V8 */
+ /* VAUX4 for CAM_IO */
 static struct regulator_init_data panther_vaux4 = {
 	.constraints = {
+		/* CAM_IO(DOVDD) may vary from 1.8v to 2.8v */
 		.min_uV                 = 1800000,
-		.max_uV                 = 1800000,
+		.max_uV                 = 2800000,
 		.apply_uV               = true,
 		.valid_modes_mask       = REGULATOR_MODE_NORMAL
 			| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask         = REGULATOR_CHANGE_MODE
+		/* Add REGULATOR_CHANGE_VOLTAGE flag to control voltage */
+		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE
+			| REGULATOR_CHANGE_MODE
 			| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
