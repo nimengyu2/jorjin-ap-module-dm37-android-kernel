@@ -4628,8 +4628,7 @@ static int ov5640_detect(struct v4l2_subdev *subdev)
 	val = (ov5640_read_reg(client, REG_CHIP_ID_MSB) << 8) + ov5640_read_reg(client, REG_CHIP_ID_LSB);
 	v4l_dbg(1, debug, client, "chip id detected 0x%x\n", val);
 
-	//if (OV5640_CHIP_ID != val) {
-	if (0x5642 != val) {
+	if (OV5640_CHIP_ID != val) {
 		/* We didn't read the values we expected, so this must not be
 		 * ov5640.
 		 */
