@@ -628,6 +628,9 @@ int __video_register_device(struct video_device *vdev, int type, int nr,
 	video_device[vdev->minor] = vdev;
 	mutex_unlock(&videodev_lock);
 
+	// Jack_20111018: debuging
+	printk(KERN_DEBUG "V4L_DEBUG: register %s as %s%d\n", vdev->name, name_base, vdev->num);
+
 	return 0;
 
 cleanup:

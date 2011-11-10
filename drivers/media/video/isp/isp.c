@@ -1637,6 +1637,9 @@ isp_register_subdev_group(struct isp_device *isp,
 		struct v4l2_subdev *subdev;
 		struct i2c_adapter *adapter;
 
+		// Jack_20111006: omap3 camera debug
+		printk(KERN_DEBUG "V4L_DEBUG, module name: %s, addr: 0x%02X\n",board_info->board_info->type,board_info->board_info->addr);
+
 		adapter = i2c_get_adapter(board_info->i2c_adapter_id);
 		if (adapter == NULL) {
 			printk(KERN_ERR "%s: Unable to get I2C adapter %d for "
