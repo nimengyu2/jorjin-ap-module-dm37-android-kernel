@@ -57,6 +57,10 @@
 #include <linux/regulator/fixed.h>
 #endif
 
+#ifdef CONFIG_TI_ST
+#include <linux/ti_wilink_st.h>
+#endif
+
 #include "mux.h"
 #include "hsmmc.h"
 #include "timer-gp.h"
@@ -397,6 +401,46 @@ static struct omap2_hsmmc_info mmc[] = {
 static struct regulator_consumer_supply panther_vmmc1_supply = {
 	.supply			= "vmmc",
 };
+
+#ifdef CONFIG_TI_ST
+
+#define PANTHER_BTEN_GPIO       15
+
+int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	/* TODO: wait for HCI-LL sleep */
+    pr_info(" plat_kim_suspend \n");
+	return 0;
+}
+
+int plat_kim_resume(struct platform_device *pdev)
+{
+    pr_info(" plat_kim_resume \n");
+	return 0;
+}
+
+/* TI BT, FM, GPS connectivity chip */
+struct ti_st_plat_data wilink_pdata = {
+	.nshutdown_gpio = PANTHER_BTEN_GPIO,
+	.dev_name = "/dev/ttyO1",
+	.flow_cntrl = 1,
+	.baud_rate = 3000000,
+	.suspend = plat_kim_suspend,
+	.resume = plat_kim_resume,
+};
+
+static struct platform_device wl12xx_device = {
+	.name           = "kim",
+	.id             = -1,
+	.dev.platform_data = &wilink_pdata,
+};
+
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+#endif
+
 
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 
@@ -759,6 +803,10 @@ static struct platform_device *panther_devices[] __initdata = {
 	&keys_gpio,
 	&panther_dss_device,
 	&usb_mass_storage_device,
+#ifdef CONFIG_TI_ST
+    &wl12xx_device,
+    &btwilink_device,
+#endif
 };
 
 static void __init panther_flash_init(void)
@@ -867,6 +915,11 @@ static void __init panther_init(void)
 	if (wl12xx_set_platform_data(&beagle_wlan_data))
 		pr_err("error setting wl12xx data\n");
 	platform_device_register(&beagle_wlan_regulator);
+#endif
+
+#ifdef CONFIG_TI_ST
+    /* Config GPIO to output for BT */
+	omap_mux_init_gpio(PANTHER_BTEN_GPIO, OMAP_PIN_OUTPUT);
 #endif
 }
 
