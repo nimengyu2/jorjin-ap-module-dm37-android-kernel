@@ -254,7 +254,6 @@ static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(0x1199, 0x0027) }, /* Sierra Wireless AC402 */
 	{ USB_DEVICE(0x1199, 0x0028) }, /* Sierra Wireless MC5728 */
 	{ USB_DEVICE(0x1199, 0x0029) }, /* Sierra Wireless Device */
-
 	{ USB_DEVICE(0x1199, 0x6802) },	/* Sierra Wireless MC8755 */
 	{ USB_DEVICE(0x1199, 0x6803) },	/* Sierra Wireless MC8765 */
 	{ USB_DEVICE(0x1199, 0x6804) },	/* Sierra Wireless MC8755 */
