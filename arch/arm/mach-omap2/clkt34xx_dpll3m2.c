@@ -70,6 +70,7 @@ int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 	else
 		sdrcrate >>= ((clk->rate / rate) >> 1);
 
+	printk(KERN_DEBUG "CLK_DEBUG: validrate=%ld, clk->rate=%ld, sdrc_ick_p->rate=%ld, sdrcrate=%ld\n", validrate, clk->rate, sdrc_ick_p->rate, sdrcrate);
 	ret = omap2_sdrc_get_params(sdrcrate, &sdrc_cs0, &sdrc_cs1);
 	if (ret)
 		return -EINVAL;

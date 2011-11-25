@@ -383,7 +383,7 @@ static struct omap2_hsmmc_info mmc[] = {
 	{
 		.mmc		= 1,
 		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA,
-		.gpio_wp	= 29,
+		.gpio_wp	= -EINVAL,
 	},
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	{
@@ -444,53 +444,48 @@ static struct platform_device btwilink_device = {
 
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 
-#define BEAGLE_WLAN_PMENA_GPIO       (16)
-#define BEAGLE_WLAN_IRQ_GPIO         (112)
+#define PANTHER_WLAN_PMENA_GPIO       (16)
+#define PANTHER_WLAN_IRQ_GPIO         (112)
 
-static struct regulator_consumer_supply beagle_vmmc2_supply =
+static struct regulator_consumer_supply panther_vmmc2_supply =
 	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1");
 
 /* VMMC2 for driving the WL12xx module */
-static struct regulator_init_data beagle_vmmc2 = {
+static struct regulator_init_data panther_vmmc2 = {
 	.constraints = {
 		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies = &beagle_vmmc2_supply,
+	.consumer_supplies = &panther_vmmc2_supply,
 };
 
-static struct fixed_voltage_config beagle_vwlan = {
+static struct fixed_voltage_config panther_vwlan = {
 	.supply_name            = "vwl1271",
 	.microvolts             = 1800000, /* 1.80V */
-	.gpio                   = BEAGLE_WLAN_PMENA_GPIO,
+	.gpio                   = PANTHER_WLAN_PMENA_GPIO,
 	.startup_delay          = 70000, /* 70ms */
 	.enable_high            = 1,
 	.enabled_at_boot        = 0,
-	.init_data              = &beagle_vmmc2,
+	.init_data              = &panther_vmmc2,
 };
 
-static struct platform_device beagle_wlan_regulator = {
+static struct platform_device panther_wlan_regulator = {
 	.name           = "reg-fixed-voltage",
 	.id             = 1,
 	.dev = {
-		.platform_data  = &beagle_vwlan,
+		.platform_data  = &panther_vwlan,
 	},
 };
-struct wl12xx_platform_data beagle_wlan_data __initdata = {
-    .irq = OMAP_GPIO_IRQ(BEAGLE_WLAN_IRQ_GPIO),
-    .board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+struct wl12xx_platform_data panther_wlan_data __initdata = {
+	.irq = OMAP_GPIO_IRQ(PANTHER_WLAN_IRQ_GPIO),
+	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
 };
 #endif
 
 // This regulator has been enaled in u-boot. The following code is removed since we don't need to control it in kernel.
 #if 0
 static struct regulator_consumer_supply panther_vsim_supply = {
-// Rename regulator's name from "vmmc_aux" to "vsim" to avoid unnecessary operations in "<ROWBOAT_ANDROID>/kernel/drivers/host/omap_hsmmc.c".
-#if 0
 	.supply			= "vmmc_aux",
-#else
-	.supply			= "vsim",
-#endif
 };
 #endif
 
@@ -507,8 +502,6 @@ static struct gpio_led gpio_leds[];
 static int panther_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
-	mmc[0].gpio_wp = -EINVAL;
-
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
 	mmc[0].gpio_cd = gpio + 0;
 	omap2_hsmmc_init(mmc);
@@ -517,10 +510,6 @@ static int panther_twl_gpio_setup(struct device *dev,
 	panther_vmmc1_supply.dev = mmc[0].dev;
 	// VSIM isn't a part of MMC1's system.
 	//panther_vsim_supply.dev = mmc[0].dev;
-
-	// Move to panther_display_init()
-	/* DVI reset GPIO */
-	//panther_dvi_device.reset_gpio = 129;
 
 	/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
 	gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
@@ -748,13 +737,6 @@ static struct gpio_keys_button gpio_buttons[] = {
 //	To see the definitions of SCANCODE and KEYCODE, please refer to
 //		-- <ROWBOAT_ANDROID>/kernel/include/linux/input.h
 //		-- <ROWBOAT_ANDROID>/sdk/emulators/keymaps/qwerty.kl
-	{
-		.code			= KEY_PROG1,
-		.gpio			= 4,
-		.desc			= "user",
-		.active_low		= false,
-		.wakeup			= 1,
-	},
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	{
 		.code			= KEY_PROG2,
@@ -859,19 +841,19 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
 #endif
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
-    /* WLAN IRQ - GPIO 112 */
-    OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+	/* WLAN IRQ - GPIO 112 */
+	OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
 
-    /* WLAN POWER ENABLE - GPIO 16 */
-    OMAP3_MUX(ETK_D2, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+	/* WLAN POWER ENABLE - GPIO 16 */
+	OMAP3_MUX(ETK_D2, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
 
-    /* MMC2 SDIO pin muxes for WL12xx */
-    OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-    OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-    OMAP3_MUX(SDMMC2_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-    OMAP3_MUX(SDMMC2_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-    OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-    OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	/* MMC2 SDIO pin muxes for WL12xx */
+	OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
 #endif
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
@@ -912,9 +894,9 @@ static void __init panther_init(void)
 
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	/* WL12xx WLAN Init */
-	if (wl12xx_set_platform_data(&beagle_wlan_data))
+	if (wl12xx_set_platform_data(&panther_wlan_data))
 		pr_err("error setting wl12xx data\n");
-	platform_device_register(&beagle_wlan_regulator);
+	platform_device_register(&panther_wlan_regulator);
 #endif
 
 #ifdef CONFIG_TI_ST
