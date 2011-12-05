@@ -2345,7 +2345,10 @@ int isp_ccdc_init(struct isp_device *isp)
 	ccdc->syncif.vdpol = 0;
 
 	ccdc->clamp.oblen = 0;
-	ccdc->clamp.dcsubval = 64;
+	// Jack_20111205: CCDC_DCSUB: Sets the DC value to be subtracted from the data when optical black sampling is disabled.
+	//	The default value of this register is 0. If we set the value to 64, the max value of Y will be only 191.
+	//ccdc->clamp.dcsubval = 64;
+	ccdc->clamp.dcsubval = 0;
 
 	ccdc->vpcfg.pixelclk = 0;
 
