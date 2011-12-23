@@ -1338,8 +1338,8 @@ mt9t111_regs pll_regs1[] = {
 	{0, 0x0012, 0x0090},
 	{0, 0x002A, 0x79DD},
 #else
-	// Jack_20111222: Change PLL settings(copied from DVSDK). This soulde increase MT9T111's frame rate.
-	{0, 0x0010, 0x1801},
+	// Jack_20111222: Change PLL settings(copied from DVSDK). This sould increase MT9T111's frame rate.
+	{0, 0x0010, 0x0118},
 	{0, 0x0012, 0x0070},
 	{0, 0x002A, 0x77AA},
 	{0, 0x002C, 0x1000},
@@ -1370,6 +1370,26 @@ mt9t111_regs bayer_pattern_regs[] = {
 	{0, 0x0990, 0x0000},
 	{0, 0x098E, 0xEC8E},
 	{0, 0x0990, 0x0000}
+};
+
+mt9t111_regs yuyv_regs[] = {
+//	{0, 0x3330, 0x0008},	// output format test: eanble test pattern
+	{0, 0x337C, 0x0007},	// YUYV controller: add 0x80 to U & V, use BT-601 Coefficeients, normalize Y to 0x10~0xEB UV to 0x10~0xF0.
+	{0, 0x098E, 0x6807},	// output format:
+	{0, 0x0990, 0x0001},	// YUV422
+	{0, 0x098E, 0x6809},	// format order:
+	{0, 0x0990, 0x0002},	// YUYV
+	{0, 0x098E, 0x8400},
+	{0, 0x0990, 0x0006}
+};
+
+mt9t111_regs rgb565_regs[] = {
+	{0, 0x098E, 0x6807},	// output format:
+	{0, 0x0990, 0x0004},	// RGB565
+	{0, 0x098E, 0x6809},	// format order:
+	{0, 0x0990, 0x0002},	//
+	{0, 0x098E, 0x8400},
+	{0, 0x0990, 0x0006}
 };
 
 #endif

@@ -99,6 +99,16 @@ static const struct mt9t111_fmt mt9t111_fmt_list[] = {
 			.pixelformat = V4L2_PIX_FMT_RGB565,
 		},
 	},
+	{
+		.mbus_code = V4L2_MBUS_FMT_SRGGB10_1X10,
+		.fmt = {
+			.index = 3,
+			.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
+			.flags = 0,
+			.description = "10-bit RGGB format",
+			.pixelformat = V4L2_PIX_FMT_SRGGB10,
+		},
+	},
 };
 
 /*
@@ -273,6 +283,7 @@ static int mt9t111_enable_pll(struct i2c_client *client)
  */
 static int mt9t111_configure(struct v4l2_subdev *subdev)
 {
+	struct mt9t111 *mt9t111 = to_mt9t111(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 	int err = 0;
 
@@ -294,6 +305,24 @@ static int mt9t111_configure(struct v4l2_subdev *subdev)
 			   sizeof(def_regs1) / sizeof(mt9t111_regs));
 	if (err)
 		goto out;
+
+	switch (mt9t111->format.code)
+	{
+		case V4L2_MBUS_FMT_YUYV8_2X8:
+			err = mt9t111_write_regs(client, yuyv_regs, sizeof(yuyv_regs) / sizeof(mt9t111_regs));
+			if (err) goto out;
+			break;
+		case V4L2_MBUS_FMT_RGB565_2X8_LE:
+			err = mt9t111_write_regs(client, rgb565_regs, sizeof(rgb565_regs) / sizeof(mt9t111_regs));
+			if (err) goto out;
+			break;
+		case V4L2_MBUS_FMT_SRGGB10_1X10:
+			err = mt9t111_write_regs(client, bayer_pattern_regs, sizeof(bayer_pattern_regs) / sizeof(mt9t111_regs));
+			if (err) goto out;
+			break;
+		default:
+			break;
+	}
 
 	err = mt9t111_write_regs(client, patch_rev6,
 			   sizeof(patch_rev6) / sizeof(mt9t111_regs));
