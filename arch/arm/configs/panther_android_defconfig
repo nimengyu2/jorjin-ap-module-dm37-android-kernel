@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.37 Kernel Configuration
-# Wed Nov 16 11:57:37 2011
+# Mon Dec 26 14:34:08 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -2124,6 +2124,7 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 # Texas Instruments shared transport line discipline
 #
 # CONFIG_ST_BT is not set
+CONFIG_ST_FM=y
 # CONFIG_ADIS16255 is not set
 # CONFIG_SMB_FS is not set
 # CONFIG_EASYCAP is not set

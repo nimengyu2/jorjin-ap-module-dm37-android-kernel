@@ -3,3 +3,5 @@
 # and its protocol drivers (BT, FM, GPS)
 #
 obj-$(CONFIG_ST_BT) 		+= bt_drv.o
+obj-$(CONFIG_ST_FM)         += fm_drv.o
+fm_drv-objs         := fmdrv_chr.o
