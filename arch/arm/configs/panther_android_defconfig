@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.37 Kernel Configuration
-# Mon Dec 26 14:34:08 2011
+# Fri Jan  6 16:11:27 2012
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1978,7 +1978,7 @@ CONFIG_TWL4030_USB=y
 # CONFIG_NOP_USB_XCEIV is not set
 CONFIG_MMC=y
 # CONFIG_MMC_DEBUG is not set
-# CONFIG_MMC_UNSAFE_RESUME is not set
+CONFIG_MMC_UNSAFE_RESUME=y
 # CONFIG_MMC_EMBEDDED_SDIO is not set
 # CONFIG_MMC_PARANOID_SD_INIT is not set
 
