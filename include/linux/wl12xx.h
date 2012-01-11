@@ -26,22 +26,24 @@
 
 /* Reference clock values */
 enum {
-	WL12XX_REFCLOCK_19 = 0, /* 19.2 MHz */
-	WL12XX_REFCLOCK_26 = 1, /* 26 MHz */
-	WL12XX_REFCLOCK_38 = 2, /* 38.4 MHz */
-	WL12XX_REFCLOCK_54 = 3, /* 54 MHz */
+	WL12XX_REFCLOCK_19	= 0, /* 19.2 MHz */
+	WL12XX_REFCLOCK_26	= 1, /* 26 MHz */
+	WL12XX_REFCLOCK_38	= 2, /* 38.4 MHz */
+	WL12XX_REFCLOCK_52	= 3, /* 52 MHz */
+	WL12XX_REFCLOCK_38_XTAL = 4, /* 38.4 MHz, XTAL */
+	WL12XX_REFCLOCK_26_XTAL = 5, /* 26 MHz, XTAL */
 };
 
 /* TCXO clock values */
 enum {
-	WL12XX_TCXOCLOCK_19_2   = 0, /* 19.2MHz */
-	WL12XX_TCXOCLOCK_26     = 1, /* 26 MHz */
-	WL12XX_TCXOCLOCK_38_4   = 2, /* 38.4MHz */
-	WL12XX_TCXOCLOCK_52     = 3, /* 52 MHz */
-	WL12XX_TCXOCLOCK_16_368 = 4, /* 16.368 MHz */
-	WL12XX_TCXOCLOCK_32_736 = 5, /* 32.736 MHz */
-	WL12XX_TCXOCLOCK_16_8   = 6, /* 16.8 MHz */
-	WL12XX_TCXOCLOCK_33_6   = 7, /* 33.6 MHz */
+	WL12XX_TCXOCLOCK_19_2	= 0, /* 19.2MHz */
+	WL12XX_TCXOCLOCK_26	= 1, /* 26 MHz */
+	WL12XX_TCXOCLOCK_38_4	= 2, /* 38.4MHz */
+	WL12XX_TCXOCLOCK_52	= 3, /* 52 MHz */
+	WL12XX_TCXOCLOCK_16_368	= 4, /* 16.368 MHz */
+	WL12XX_TCXOCLOCK_32_736	= 5, /* 32.736 MHz */
+	WL12XX_TCXOCLOCK_16_8	= 6, /* 16.8 MHz */
+	WL12XX_TCXOCLOCK_33_6	= 7, /* 33.6 MHz */
 };
 
 struct wl12xx_platform_data {
@@ -55,7 +57,7 @@ struct wl12xx_platform_data {
 };
 
 /* Platform does not support level trigger interrupts */
-#define WL12XX_PLATFORM_QUIRK_EDGE_IRQ BIT(0)
+#define WL12XX_PLATFORM_QUIRK_EDGE_IRQ	BIT(0)
 
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 

@@ -478,7 +478,7 @@ static struct platform_device panther_wlan_regulator = {
 };
 struct wl12xx_platform_data panther_wlan_data __initdata = {
 	.irq = OMAP_GPIO_IRQ(PANTHER_WLAN_IRQ_GPIO),
-	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4 MHz */
 };
 #endif
 
