@@ -746,14 +746,14 @@ static struct gpio_keys_button gpio_buttons[] = {
 //		-- <ROWBOAT_ANDROID>/sdk/emulators/keymaps/qwerty.kl
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	{
-		.code			= KEY_PROG2,
+		.code			= KEY_MENU,
 		.gpio			= 137,
 		.desc			= "s1",
 		.active_low		= true,
 		.wakeup			= 1,
 	},
 	{
-		.code			= KEY_PROG3,
+		.code			= KEY_BACK,
 		.gpio			= 138,
 		.desc			= "s2",
 		.active_low		= true,
