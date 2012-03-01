@@ -255,7 +255,7 @@ static void panther_disable_lcd(struct omap_dss_device *dssdev)
 
 static struct omap_dss_device panther_lcd_device = {
 	.name			= "lcd",
-	.driver_name		= "temp_panel",
+	.driver_name		= "innolux_at_panel",
 	.type			= OMAP_DISPLAY_TYPE_DPI,
 	.phy.dpi.data_lines	= 24,
 	.max_backlight_level	= 100,
