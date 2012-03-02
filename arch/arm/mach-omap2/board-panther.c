@@ -212,7 +212,42 @@ static void ads7846_dev_init(void)
 	gpio_direction_input(PANTHER_TS_GPIO);
 	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
 }
+#endif
 
+static struct mtd_partition panther_nand_partitions[] = {
+	/* All the partition sizes are listed in terms of NAND block size */
+	{
+		.name		= "X-Loader",
+		.offset		= 0,
+		.size		= 4 * NAND_BLOCK_SIZE,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "U-Boot",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
+		.size		= 10 * NAND_BLOCK_SIZE,
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+	},
+	{
+		.name		= "U-Boot Env",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x1c0000 */
+		.size		= 6 * NAND_BLOCK_SIZE,
+	},
+	{
+		.name		= "Kernel",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
+		.size		= 40 * NAND_BLOCK_SIZE,
+	},
+	{
+		.name		= "File System",
+		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x780000 */
+		.size		= MTDPART_SIZ_FULL,
+	},
+};
+
+/* DSS */
+
+#ifdef CONFIG_PANEL_INNOLUX_AT070TN83
 // Please note that although we have added blacklight adjustment function in our code, we actually do not have a PWM connected to Chipsee's panel.
 // This is just a model for further using. It will not change the backlight intensity.
 // Also, this funtion is related to Android's light module at "<ROWBOAT>/hardware/ti/omap3/liblights/pantherboard". Please modify that module too if necessary.
@@ -263,43 +298,7 @@ static struct omap_dss_device panther_lcd_device = {
 	.platform_disable	= panther_disable_lcd,
 	.set_backlight	= panther_set_bl_intensity,
 };
-
-#else
-static inline void __init ads7846_dev_init(void) { return; }
 #endif
-
-static struct mtd_partition panther_nand_partitions[] = {
-	/* All the partition sizes are listed in terms of NAND block size */
-	{
-		.name		= "X-Loader",
-		.offset		= 0,
-		.size		= 4 * NAND_BLOCK_SIZE,
-		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
-	},
-	{
-		.name		= "U-Boot",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size		= 10 * NAND_BLOCK_SIZE,
-		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
-	},
-	{
-		.name		= "U-Boot Env",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x1c0000 */
-		.size		= 6 * NAND_BLOCK_SIZE,
-	},
-	{
-		.name		= "Kernel",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
-		.size		= 40 * NAND_BLOCK_SIZE,
-	},
-	{
-		.name		= "File System",
-		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x780000 */
-		.size		= MTDPART_SIZ_FULL,
-	},
-};
-
-/* DSS */
 
 static int panther_enable_dvi(struct omap_dss_device *dssdev)
 {
@@ -333,7 +332,7 @@ static struct omap_dss_device panther_tv_device = {
 };
 
 static struct omap_dss_device *panther_dss_devices[] = {
-#ifdef CONFIG_TOUCHSCREEN_ADS7846
+#ifdef CONFIG_PANEL_INNOLUX_AT070TN83
 	&panther_lcd_device,
 #endif
 	&panther_dvi_device,
