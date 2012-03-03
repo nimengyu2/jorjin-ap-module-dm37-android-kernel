@@ -904,7 +904,7 @@ static void __init panther_init(void)
 #endif
 }
 
-MACHINE_START(PANTHER, "Panther Board")
+MACHINE_START(PANTHER, "OMAP3 Panther Board")
 	/* Maintainer: Syed Mohammed Khasim - http://beagleboard.org */
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
