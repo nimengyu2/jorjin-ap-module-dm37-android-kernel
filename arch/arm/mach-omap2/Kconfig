@@ -159,7 +159,7 @@ config MACH_PANTHER
 	bool "Jorjin Panther board"
 	depends on ARCH_OMAP3
 	default n
-	select OMAP_PACKAGE_CBB
+	select OMAP_PACKAGE_CBP
 
 config MACH_OMAP_LDP
 	bool "OMAP3 LDP board"
