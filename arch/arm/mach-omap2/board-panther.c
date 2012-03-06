@@ -866,7 +866,7 @@ static struct omap_musb_board_data musb_board_data = {
 
 static void __init panther_init(void)
 {
-	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);
 	panther_i2c_init();
 	platform_add_devices(panther_devices,
 			ARRAY_SIZE(panther_devices));
