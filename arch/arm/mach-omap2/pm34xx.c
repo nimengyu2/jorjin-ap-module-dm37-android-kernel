@@ -1076,6 +1076,15 @@ void omap_pm_sys_offmode_select(int flag)
 					OMAP3430_GR_MOD, OMAP3_PRM_VOLTCTRL_OFFSET);
 }
 
+void omap3_pm_prm_voltctrl_set(int signal_flag,int ret_flag,int off_flag)
+{
+        omap_pm_sys_offmode_select(signal_flag);
+        omap_pm_auto_ret(ret_flag);
+        omap_pm_auto_off(off_flag);
+
+}
+
+
 /**
  * Select the polarity of sys_offmode signal
  * 1 - sys_offmode is active high
@@ -1104,6 +1113,12 @@ void omap_pm_sys_clkreq_pol(int flag)
 	else
 		omap2_prm_clear_mod_reg_bits(OMAP3430_CLKREQ_POL_MASK,
 					OMAP3430_GR_MOD, OMAP3_PRM_POLCTRL_OFFSET);
+}
+
+void omap3_pm_prm_polctrl_set(int pol_clkreq,int pol_offmode)
+{
+        omap_pm_sys_offmode_pol(pol_offmode);
+        omap_pm_sys_clkreq_pol(pol_clkreq);
 }
 
 static void __init pm_errata_configure(void)

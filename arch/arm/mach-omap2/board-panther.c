@@ -65,6 +65,7 @@
 #include "hsmmc.h"
 #include "timer-gp.h"
 #include "board-flash.h"
+#include "pm34xx.h"
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
@@ -244,8 +245,8 @@ static int panther_enable_lcd(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
 
 	// Workaround for pantherboard suspened issue (Unhandled fault: external abort on non-linefetch (0x1028) at 0xfa064010).
-	gpio_direction_input(PANTHER_TS_GPIO);
-	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
+//	gpio_direction_input(PANTHER_TS_GPIO);
+//	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
 
 	return 0;
 }
@@ -257,7 +258,7 @@ static void panther_disable_lcd(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
 
 	// Workaround for pantherboard suspened issue (Unhandled fault: external abort on non-linefetch (0x1028) at 0xfa064010).
-	gpio_direction_output(PANTHER_TS_GPIO, 1);
+//	gpio_direction_output(PANTHER_TS_GPIO, 1);
 }
 
 static struct omap_dss_device panther_lcd_device = {
@@ -910,6 +911,9 @@ static void __init panther_init(void)
     /* Config GPIO to output for BT */
 	omap_mux_init_gpio(PANTHER_BTEN_GPIO, OMAP_PIN_OUTPUT);
 #endif
+        /*initialize sleep relational register for PM components*/
+        omap3_pm_prm_polctrl_set(1,0);
+        omap3_pm_prm_voltctrl_set(1,1,1);
 }
 
 MACHINE_START(PANTHER, "OMAP3 Panther Board")
