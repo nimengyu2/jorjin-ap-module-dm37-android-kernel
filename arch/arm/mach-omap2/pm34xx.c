@@ -987,7 +987,16 @@ static int __init pwrdms_setup(struct powerdomain *pwrdm, void *unused)
 	if (!pwrst)
 		return -ENOMEM;
 	pwrst->pwrdm = pwrdm;
-	pwrst->next_state = PWRDM_POWER_RET;
+	
+        //below is edited by zhongyf
+        if(!strcmp(pwrst->pwrdm->name,"core_pwrdm") ||
+           !strcmp(pwrst->pwrdm->name,"mpu_pwrdm")){
+                pwrst->next_state = PWRDM_POWER_RET;
+        } else {
+                pwrst->next_state = PWRDM_POWER_OFF;
+        }
+        //above is edited by zhongyf
+
 	list_add(&pwrst->node, &pwrst_list);
 
 	if (pwrdm_has_hdwr_sar(pwrdm))
@@ -1076,6 +1085,15 @@ void omap_pm_sys_offmode_select(int flag)
 					OMAP3430_GR_MOD, OMAP3_PRM_VOLTCTRL_OFFSET);
 }
 
+void omap3_pm_prm_voltctrl_set(int signal_flag,int ret_flag,int off_flag)
+{
+        omap_pm_sys_offmode_select(signal_flag);
+        omap_pm_auto_ret(ret_flag);
+        omap_pm_auto_off(off_flag);
+}
+
+
+
 /**
  * Select the polarity of sys_offmode signal
  * 1 - sys_offmode is active high
@@ -1106,6 +1124,12 @@ void omap_pm_sys_clkreq_pol(int flag)
 					OMAP3430_GR_MOD, OMAP3_PRM_POLCTRL_OFFSET);
 }
 
+void omap3_pm_prm_polctrl_set(int pol_clkreq,int pol_offmode)
+{
+        omap_pm_sys_offmode_pol(pol_offmode);
+        omap_pm_sys_clkreq_pol(pol_clkreq);
+}
+
 static void __init pm_errata_configure(void)
 {
 	if (cpu_is_omap3630()) {
@@ -1129,6 +1153,10 @@ static int __init omap3_pm_init(void)
 	pm_errata_configure();
 
 	printk(KERN_ERR "Power Management for TI OMAP3.\n");
+
+#ifdef CONFIG_OMAP3_PM_DISABLE_VT_SWITCH
+        pm_set_vt_switch(0);
+#endif
 
 	/* XXX prcm_setup_regs needs to be before enabling hw
 	 * supervised mode for powerdomains */
