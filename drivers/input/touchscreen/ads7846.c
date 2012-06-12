@@ -55,7 +55,7 @@
  */
 
 #define TS_POLL_DELAY	1	/* ms delay before the first sample */
-#define TS_POLL_PERIOD	5	/* ms delay between samples */
+#define TS_POLL_PERIOD	20	/* ms delay between samples */
 
 /* this driver doesn't aim at the peak continuous sample rate */
 #define	SAMPLE_BITS	(8 /*cmd*/ + 16 /*sample*/ + 2 /* before, after */)
