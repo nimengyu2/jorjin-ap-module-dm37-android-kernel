@@ -924,8 +924,8 @@ static void ads7846_report_state(struct ads7846 *ts)
 
 		input_sync(input);
 		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", x, y, Rt);
-		printk("point(%4d,%4d), pressure (%4u)\n",
-                       xx, yy, ts->pressure_max - Rt);
+		//printk("point(%4d,%4d), pressure (%4u)\n",
+                //       xx, yy, ts->pressure_max - Rt);
 	}
 }
 

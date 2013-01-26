@@ -25,7 +25,7 @@
 static struct omap_video_timings at070tn83_panel_timings = {
 	/* 7 inch LCD */
 	.x_res		= 800,
-	.y_res		= 480,
+	.y_res		= 600,
 	.pixel_clock	= 36000,
 	.hfp		= 1,
 	.hsw		= 48,
