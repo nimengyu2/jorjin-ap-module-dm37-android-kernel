@@ -902,12 +902,30 @@ static void ads7846_report_state(struct ads7846 *ts)
 			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
 #endif
 
-		input_report_abs(input, ABS_X, x);
-		input_report_abs(input, ABS_Y, y);
+	        long a0,a1,a2,a3,a4,a5,a6;
+                long xx,yy;
+                a0 = 13291;
+                a1 = -22;
+                a2 = -776728;
+                a3 = -10;
+                a4 = 7609;
+                a5 = -1241816;
+                a6 = 65536;
+
+                xx=(long) (((a2+(a0*x)+(a1*y))/a6)*4096/800);
+                yy=(long) (((a5+(a3*x)+(a4*y))/a6)*4096/480); 
+
+		input_report_abs(input, ABS_X, xx);
+		input_report_abs(input, ABS_Y, yy);
+
+		//input_report_abs(input, ABS_X, x);
+		//input_report_abs(input, ABS_Y, y);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
 
 		input_sync(input);
 		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", x, y, Rt);
+		printk("point(%4d,%4d), pressure (%4u)\n",
+                       xx, yy, ts->pressure_max - Rt);
 	}
 }
 
