@@ -23,9 +23,10 @@
 #include <plat/display.h>
 
 static struct omap_video_timings at070tn83_panel_timings = {
+#if 0
 	/* 7 inch LCD */
 	.x_res		= 800,
-	.y_res		= 600,
+	.y_res		= 480,
 	.pixel_clock	= 36000,
 	.hfp		= 1,
 	.hsw		= 48,
@@ -33,6 +34,19 @@ static struct omap_video_timings at070tn83_panel_timings = {
 	.vfp		= 12,
 	.vsw		= 3,
 	.vbp		= 23,
+#endif
+/* Topway LMT070DICFWD */
+#if 1
+	.x_res		= 800,
+	.y_res		= 480,
+	.pixel_clock	= 33000,
+	.hfp = 210, // Min: 16 Normal: 210 Max: 354
+	.hsw = 40, // Min: 1 Normal: - Max: 40
+	.hbp = 6, // (Min: 46 Normal: 46 Max: 46) - 40
+	.vfp = 22, // Min: 7 Normal: 22 Max: 147
+	.vsw = 20, // Min: 1 Normal: - Max: 20
+	.vbp = 3, // (Min: 23 Normal: 23 Max: 23) - 20	
+#endif
 };
 
 static int at070tn83_panel_power_on(struct omap_dss_device *dssdev)
