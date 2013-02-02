@@ -932,7 +932,7 @@ static void __init panther_init_irq(void)
 }
 
 static struct platform_device *panther_devices[] __initdata = {
-	&leds_gpio,
+	//&leds_gpio,
 	&keys_gpio,
 	&panther_dss_device,
 	&usb_mass_storage_device,
@@ -1087,6 +1087,8 @@ static void __init panther_init(void)
 #endif
 
 	omap_mux_init_gpio(127, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(38, OMAP_PIN_OUTPUT);
+	omap_mux_init_gpio(37, OMAP_PIN_OUTPUT);
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);

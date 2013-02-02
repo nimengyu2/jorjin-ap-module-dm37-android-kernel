@@ -44,6 +44,13 @@ config CONSOLE_TRANSLATIONS
 	  This enables support for font mapping and Unicode translation
 	  on virtual consoles.
 
+# nmy modify start
+config DM3730_GPIO 
+        tristate "gpio driver for dm3730 board development boards" 
+        help 
+          this is gpio driver for dm3730 board development boards
+# nmy modify end
+
 config VT_CONSOLE
 	bool "Support for console on virtual terminal" if EMBEDDED
 	depends on VT
