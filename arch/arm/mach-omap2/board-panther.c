@@ -861,6 +861,13 @@ static int __init panther_i2c_init(void)
 
 static struct gpio_led gpio_leds[] = {
 // Pantherboard's leds aren't driven by GPIOs (except for D701(USB Active)).
+	{
+		.name			= "gpio-led-127",
+		.gpio			= 127,
+		.default_trigger	= "backlight",
+		.active_low		= true,
+		.default_state		= LEDS_GPIO_DEFSTATE_OFF,
+	},
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
@@ -1078,6 +1085,8 @@ static void __init panther_init(void)
 	spi_register_board_info(panther_spi_board_info, ARRAY_SIZE(panther_spi_board_info));
 	ads7846_dev_init();
 #endif
+
+	omap_mux_init_gpio(127, OMAP_PIN_OUTPUT);
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
