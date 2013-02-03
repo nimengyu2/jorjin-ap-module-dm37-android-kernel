@@ -862,10 +862,10 @@ static int __init panther_i2c_init(void)
 static struct gpio_led gpio_leds[] = {
 // Pantherboard's leds aren't driven by GPIOs (except for D701(USB Active)).
 	{
-		.name			= "gpio-led-127",
-		.gpio			= 127,
+		.name			= "gpio-led-38",
+		.gpio			= 38,
 		.default_trigger	= "backlight",
-		.active_low		= true,
+		.active_low		= false,   // led_gpio -->  LED  --->  GND,so active high
 		.default_state		= LEDS_GPIO_DEFSTATE_OFF,
 	},
 };
@@ -932,7 +932,7 @@ static void __init panther_init_irq(void)
 }
 
 static struct platform_device *panther_devices[] __initdata = {
-	//&leds_gpio,
+	&leds_gpio,
 	&keys_gpio,
 	&panther_dss_device,
 	&usb_mass_storage_device,
