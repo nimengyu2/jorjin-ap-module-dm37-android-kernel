@@ -1225,6 +1225,19 @@ static void __init panther_init(void)
 
 	omap_mux_init_gpio(25, OMAP_PIN_OUTPUT);
 
+	omap_mux_init_gpio(29, OMAP_PIN_OUTPUT);
+	gpio_request(29, "audio_en");
+	gpio_direction_output(29, 1);
+
+	omap_mux_init_gpio(24, OMAP_PIN_OUTPUT);
+	gpio_request(24, "power");
+	gpio_direction_output(24, 1);
+
+	omap_mux_init_gpio(172, OMAP_PIN_OUTPUT);
+	gpio_request(172, "power2");
+	gpio_direction_output(172, 1);
+
+
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
 	panther_flash_init();
