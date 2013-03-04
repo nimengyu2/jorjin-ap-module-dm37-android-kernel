@@ -457,6 +457,7 @@ long st_kim_start(void *kim_data)
 		mdelay(5);	/* FIXME: a proper toggle */
 		gpio_set_value(kim_gdata->nshutdown, GPIO_HIGH);
 		mdelay(100);
+		printk("bt_en high.......\n\n");
 		/* re-initialize the completion */
 		INIT_COMPLETION(kim_gdata->ldisc_installed);
 		/* send notification to UIM */

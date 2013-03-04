@@ -27,6 +27,8 @@
 #define OV5640_DEF_WIDTH		640
 #define OV5640_DEF_HEIGHT		480
 
+/* hood add for debug */
+static int size_change = 0;
 /* Debug functions */
 static int debug = 0;
 //module_param(debug, bool, 0644);
@@ -253,9 +255,10 @@ static struct ov5640_reg ov5640_5m_reg[] = {
 
 /* OV5640 default register values */
 static struct ov5640_reg ov5640_reg_list[] = {
-	{0x3103, 0x11},
-	{0x3008, 0x82},
-	{0x3008, 0x42},
+	/* hood delete for debug */
+//	{0x3103, 0x11},
+//	{0x3008, 0x82},
+//	{0x3008, 0x42},
 	{0x3103, 0x03},
 	{0x3017, 0xff},
 	{0x3018, 0xff},
@@ -4546,11 +4549,19 @@ static int ov5640_write_regs(struct i2c_client *client,
  */
 static int ov5640_def_config(struct v4l2_subdev *subdev)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 
+	/* hood add for debug */
+	ov5640_write_reg(client, 0x3103, 0x11);
+	ov5640_write_reg(client, 0x3008, 0x82);
+	msleep(20);
+	ov5640_write_reg(client, 0x3008, 0x42);
+	msleep(20);
+	/* hood add end */
+
 	/* common register initialization */
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return ov5640_write_regs(client, ov5640_reg_list);
 }
 
@@ -4560,7 +4571,7 @@ static int ov5640_def_config(struct v4l2_subdev *subdev)
  */
 static int ov5640_vga_mode(struct v4l2_subdev *subdev)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 	struct ov5640 *ov5640 = to_ov5640(subdev);
 	struct ov5640_reg *fmt_reg;
@@ -4592,21 +4603,19 @@ static int ov5640_vga_mode(struct v4l2_subdev *subdev)
 		if (ret) v4l_err(client, "Failed to set continuous focus mode\n");
 	}
 
+	#if 0
 	if (ov5640->format.code == V4L2_MBUS_FMT_YUYV8_2X8)
 		ret = ov5640_write_reg(client, 0x4300, 0x30);
-#if 0
-	else if (mt9v113->format.code == V4L2_MBUS_FMT_RGB565_2X8_LE)
-		fmt_reg = mt9v113_rgb565_reg;
-#endif
 	else
 		/* Falling down to default UYVY format */
 		ret = ov5640_write_reg(client, 0x4300, 0x32);
+	#endif
 
 	if (ret)
 		v4l_err(client, "Failed to configure pixel format\n");
 
 exit:
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return ret;
 }
 
@@ -4722,7 +4731,7 @@ static int ov5640_s_config(struct v4l2_subdev *subdev, int irq,
  */
 static int ov5640_s_power(struct v4l2_subdev *subdev, int on)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	struct ov5640 *decoder = to_ov5640(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
 	int rval;
@@ -4752,7 +4761,7 @@ out:
 	if (rval < 0)
 		v4l_err(client, "Unable to set target power state\n");
 
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return rval;
 }
 
@@ -4761,7 +4770,7 @@ out:
  */
 static int ov5640_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
 
@@ -4778,13 +4787,15 @@ static int ov5640_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 	crop->height = OV5640_DEF_HEIGHT;
 
 	format = v4l2_subdev_get_try_format(fh, 0);
-	format->code = V4L2_MBUS_FMT_UYVY8_2X8;
+	/* hood modify for debug */
+//	format->code = V4L2_MBUS_FMT_UYVY8_2X8;
+	format->code = V4L2_MBUS_FMT_YUYV8_2X8;
 	format->width = OV5640_DEF_WIDTH;
 	format->height = OV5640_DEF_HEIGHT;
 	format->field = V4L2_FIELD_NONE;
 	format->colorspace = V4L2_COLORSPACE_JPEG;
 
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return 0;
 }
 
@@ -4798,6 +4809,23 @@ static int ov5640_s_stream(struct v4l2_subdev *subdev, int streaming)
 	 * FIXME: We should put here the specific reg setting to turn on
 	 * streaming in sensor.
 	 */
+	/* hood add for debug */
+	struct ov5640 *ov5640 = to_ov5640(subdev);
+	struct i2c_client *client = v4l2_get_subdevdata(subdev);
+
+	if(streaming)
+	{
+		if(size_change)
+		{
+			if( (ov5640->format.width == 640) && (ov5640->format.height == 480) )
+				ov5640_write_regs(client, ov5640_vga_reg);
+			else if( (ov5640->format.width == 2592) && (ov5640->format.height == 1944) )
+				ov5640_write_regs(client, ov5640_5m_reg);
+			size_change = 0;
+		}
+	}
+	/* hood add end */
+		
 	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return 0;
 }
@@ -4851,11 +4879,12 @@ static int ov5640_get_pad_format(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_format *fmt)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	struct ov5640 *ov5640 = to_ov5640(subdev);
 
 	fmt->format = ov5640->format;
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+		
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return 0;
 }
 
@@ -4863,7 +4892,7 @@ static int ov5640_set_pad_format(struct v4l2_subdev *subdev,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_format *fmt)
 {
-	printk(KERN_DEBUG "%s() ENTER\n", __func__);
+//	printk(KERN_DEBUG "%s() ENTER\n", __func__);
 	int i;
 	struct ov5640 *ov5640 = to_ov5640(subdev);
 
@@ -4875,6 +4904,8 @@ static int ov5640_set_pad_format(struct v4l2_subdev *subdev,
 		return -EINVAL;
 
 fmt_found:
+	/* hood delete for debug */
+	#if 0
 	/*
 	 * Only VGA resolution supported
 	 */
@@ -4882,10 +4913,12 @@ fmt_found:
 	fmt->format.height = OV5640_DEF_HEIGHT;
 	fmt->format.field = V4L2_FIELD_NONE;
 	fmt->format.colorspace = V4L2_COLORSPACE_JPEG;
+	#endif
 
 	ov5640->format = fmt->format;
+	size_change = 1;
 
-	printk(KERN_DEBUG "%s() EXIT\n", __func__);
+//	printk(KERN_DEBUG "%s() EXIT\n", __func__);
 	return 0;
 }
 

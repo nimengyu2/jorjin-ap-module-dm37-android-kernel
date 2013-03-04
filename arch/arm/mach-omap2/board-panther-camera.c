@@ -40,6 +40,10 @@
 
 #define CAM_USE_XCLKA			0
 #define LEOPARD_RESET_GPIO		98
+/* hood add for debug */
+#define POWER_DOWN_GPIO 37
+#define VDD_CAM_GPIO	42	
+/* hood add end */
 
 static struct regulator *panther_cam_digital;
 static struct regulator *panther_cam_io;
@@ -102,7 +106,56 @@ static int panther_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 }
 #endif
 #ifdef CONFIG_VIDEO_OV5640
-#define POWER_DOWN_GPIO 167
+static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
+{
+	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
+
+
+	if (on) {
+		/*
+		 * Power Up Sequence
+		 */
+		/* Set POWER_DOWN to 1 */
+		gpio_set_value(POWER_DOWN_GPIO, 1);
+		/* Set RESET_BAR to 0 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 0);
+		/* Turn on VDD */
+		gpio_set_value(VDD_CAM_GPIO, 1);
+
+		mdelay(50);
+		/* Enable EXTCLK */
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 24000000, CAM_USE_XCLKA);
+		/*
+		 * Wait at least 70 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 70) / 24000000) = aprox 3 us.
+		 */
+		udelay(3);
+		/* Set RESET_BAR to 1 */
+		gpio_set_value(LEOPARD_RESET_GPIO, 1);
+		/* Set POWER_DOWN to 0 */
+		gpio_set_value(POWER_DOWN_GPIO, 0);
+		/*
+		 * Wait at least 100 CLK cycles (w/EXTCLK = 24MHz):
+		 * ((1000000 * 100) / 24000000) = aprox 5 us.
+		 */
+		msleep(20);
+	} else {
+		/*
+		 * Power Down Sequence
+		 */
+		gpio_set_value(VDD_CAM_GPIO, 0);
+
+		mdelay(20);
+
+		if (isp->platform_cb.set_xclk)
+			isp->platform_cb.set_xclk(isp, 0, CAM_USE_XCLKA);
+	}
+
+	return 0;
+}
+/* hood modify for debug */
+#if 0
 static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
@@ -113,6 +166,7 @@ static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 	}
 	if (on) {
 		/* Check Voltage-Levels */
+		/* hood modify for debug */
 		if (regulator_get_voltage(panther_cam_digital) != 1500000)
 			regulator_set_voltage(panther_cam_digital, 1500000, 1500000);
 		if (regulator_get_voltage(panther_cam_io) != 1800000)
@@ -135,6 +189,7 @@ static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 		mdelay(50);
 		/* Enable EXTCLK */
 		if (isp->platform_cb.set_xclk)
+		/* hood modify */
 			isp->platform_cb.set_xclk(isp, 24000000, CAM_USE_XCLKA);
 		/*
 		 * Wait at least 70 CLK cycles (w/EXTCLK = 24MHz):
@@ -149,7 +204,9 @@ static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 		 * Wait at least 100 CLK cycles (w/EXTCLK = 24MHz):
 		 * ((1000000 * 100) / 24000000) = aprox 5 us.
 		 */
-		udelay(5);
+		/* hood modify for debug */
+//		udelay(5);
+		msleep(20);
 	} else {
 		/*
 		 * Power Down Sequence
@@ -165,6 +222,7 @@ static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 
 	return 0;
 }
+#endif
 #endif
 #ifdef CONFIG_VIDEO_MT9T111
 static int panther_mt9t111_s_power(struct v4l2_subdev *subdev, int on)
@@ -400,6 +458,51 @@ static struct isp_platform_data panther_isp_platform_data = {
 static int __init panther_cam_init(void)
 {
 	/*
+	 * Sensor reset GPIO
+	 */
+	if (gpio_request(LEOPARD_RESET_GPIO, "cam_rst") != 0) {
+		printk(KERN_ERR "panther-cam: Could not request GPIO %d\n",
+				LEOPARD_RESET_GPIO);
+		return -ENODEV;
+	}
+	/* set to output mode */
+	gpio_direction_output(LEOPARD_RESET_GPIO, 0);
+
+	/* Request POWER_DOWN_GPIO and set to output */
+	if(gpio_request(POWER_DOWN_GPIO, "CAM power down") !=0)
+	{
+		printk(KERN_ERR "panther-cam: Could not request GPIO %d\n",
+				POWER_DOWN_GPIO);
+		return -ENODEV;
+	}
+	gpio_direction_output(POWER_DOWN_GPIO, 0); /* hood modify for debug */
+
+	/* Request POWER_DOWN_GPIO and set to output */
+	if(gpio_request(VDD_CAM_GPIO, "CAM vdd") !=0)
+	{
+		printk(KERN_ERR "panther-cam: Could not request GPIO %d\n",
+				VDD_CAM_GPIO);
+		return -ENODEV;
+	}
+	gpio_direction_output(VDD_CAM_GPIO, 0);
+
+	omap3_init_camera(&panther_isp_platform_data);
+
+	return 0;
+}
+
+static void __exit panther_cam_exit(void)
+{
+	gpio_free(LEOPARD_RESET_GPIO);
+	gpio_free(POWER_DOWN_GPIO);
+	gpio_free(VDD_CAM_GPIO);
+}
+
+/* hood modify for debug */
+#if 0
+static int __init panther_cam_init(void)
+{
+	/*
 	 * Regulator supply required for camera interface
 	 */
 	panther_cam_digital = regulator_get(NULL, "cam_digital");
@@ -442,6 +545,7 @@ static void __exit panther_cam_exit(void)
 
 	gpio_free(LEOPARD_RESET_GPIO);
 }
+#endif
 
 module_init(panther_cam_init);
 module_exit(panther_cam_exit);

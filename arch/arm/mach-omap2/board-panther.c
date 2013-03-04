@@ -57,6 +57,13 @@
 #include <linux/regulator/fixed.h>
 #endif
 
+#define BACKLIGHT_ENABLE
+
+#ifdef BACKLIGHT_ENABLE
+#include <linux/backlight.h>
+#endif
+
+
 #ifdef CONFIG_TI_ST
 #include <linux/ti_wilink_st.h>
 #endif
@@ -186,43 +193,42 @@ static void __init omap3_beagle_pm_init(void)
 
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 
-#define PANTHER_TS_GPIO       157
+/*meikee add for debug */
+#define PANTHER_TS_GPIO    	74
+/*meikee add end*/
+
+
+
+/* hood add for debug */
+#define DSS_OE_GPIO       70
+#define LCD_PW_GPIO       71
+#define LCD_BL_GPIO       72
+/* hood add end */
 
 #include <plat/mcspi.h>
 #include <linux/spi/spi.h>
 
-static struct omap2_mcspi_device_config ads7846_mcspi_config = {
+
+/* hood add for debug */
+static struct omap2_mcspi_device_config spi1_mcspi_config = {
         .turbo_mode     = 0,
         .single_channel = 1,    /* 0: slave, 1: master */
 };
+/* hood add end */
 
-static int ads7846_get_pendown_state(void)
+
+
+
+/* hood add for debug */
+static void __init panther_config_mcspi1_mux(void)
 {
-        return !gpio_get_value(PANTHER_TS_GPIO);
+        //omap_mux_init_signal("mcbsp1_clkr.mcspi1_clk", OMAP_PIN_INPUT);
+        omap_mux_init_signal("mcbsp1_fsx.mcspi1_cs1", OMAP_PIN_OUTPUT);
+        omap_mux_init_signal("mcbsp1_dx.mcspi1_simo", OMAP_PIN_OUTPUT);
+        //omap_mux_init_signal("mcbsp1_dr.mcspi1_somi", OMAP_PIN_INPUT_PULLDOWN);
 }
-
-struct ads7846_platform_data ads7846_config = {
-        .x_max                  = 0x0fff,
-        .y_max                  = 0x0fff,
-        .x_plate_ohms           = 180,
-        .pressure_max           = 255,
-        .debounce_max           = 10,
-        .debounce_tol           = 3,
-        .debounce_rep           = 1,
-        .get_pendown_state      = ads7846_get_pendown_state,
-        .keep_vref_on           = 1,
-        .settle_delay_usecs     = 150,
-        .wakeup                         = true,
-};
-
-static void __init panther_config_mcspi4_mux(void)
-{
-        omap_mux_init_signal("mcbsp1_clkr.mcspi4_clk", OMAP_PIN_INPUT);
-        omap_mux_init_signal("mcbsp1_fsx.mcspi4_cs0", OMAP_PIN_OUTPUT);
-        omap_mux_init_signal("mcbsp1_dx.mcspi4_simo", OMAP_PIN_OUTPUT);
-        omap_mux_init_signal("mcbsp1_dr.mcspi4_somi", OMAP_PIN_INPUT_PULLUP);
-}
-
+/* hood add end */
+/*
 struct spi_board_info panther_spi_board_info[] = {
         [0] = {
                 .modalias               = "ads7846",
@@ -233,17 +239,37 @@ struct spi_board_info panther_spi_board_info[] = {
                 .irq                    = OMAP_GPIO_IRQ(PANTHER_TS_GPIO),
                 .platform_data          = &ads7846_config,
         },
-};
+	// hood add for debug 
+        [1] = {
+                .modalias               = "spidev",
+                .bus_num                = 1,
+                .chip_select            = 1,
+                .max_speed_hz           = 1500000,
+                .controller_data        = &spi1_mcspi_config,
+        },
+	// hood add end 
+};*/
 
-static void ads7846_dev_init(void)
+/*meikee add for debug*/
+static void ft5x06_dev_init(void)
 {
-	printk("Initialize ads7846 touch screen controller\n");
-
-	if (gpio_request(PANTHER_TS_GPIO, "ADS7846 pendown") < 0)
-		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
-
+	printk("Initialize ft5x06 touch screen controller\n");
+	omap_mux_init_gpio(PANTHER_TS_GPIO, OMAP_PIN_INPUT);
+	if (gpio_request(PANTHER_TS_GPIO, "ft5x06") < 0)
+		  printk(KERN_ERR "can't get ft5x06 pen down GPIO\n");
 	gpio_direction_input(PANTHER_TS_GPIO);
-	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
+	enable_irq(gpio_to_irq(PANTHER_TS_GPIO));
+
+	/* hood add for debug */
+	if (gpio_request(DSS_OE_GPIO, "DSS oe") < 0)
+		printk(KERN_ERR "can't control DSS oe\n");
+
+	if (gpio_request(LCD_PW_GPIO, "LCD power") < 0)
+		printk(KERN_ERR "can't control LCD power\n");
+
+	if (gpio_request(LCD_BL_GPIO, "LCD backlight") < 0)
+		printk(KERN_ERR "can't control LCD backlight\n");
+	/* hood add end */
 }
 #endif
 
@@ -310,6 +336,12 @@ static int panther_enable_lcd(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x04, TWL_PMBR1);	// set GPIO.6 to PWM0
 	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x05, TWL_GPBR1);	// enable PWM0 output & clock
 	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
+	
+	/* hood add for debug */
+	gpio_direction_output(DSS_OE_GPIO, 0);
+	gpio_direction_output(LCD_PW_GPIO, 1);
+	gpio_direction_output(LCD_BL_GPIO, 1);
+	/* hood add end */
 
 	// Workaround for pantherboard suspened issue (Unhandled fault: external abort on non-linefetch (0x1028) at 0xfa064010).
 	//gpio_direction_input(PANTHER_TS_GPIO);
@@ -324,6 +356,10 @@ static void panther_disable_lcd(struct omap_dss_device *dssdev)
 	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x00, TWL_GPBR1);	// disable PWM0 output & clock
 	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
 
+	/* hood add for debug */
+	gpio_direction_output(LCD_PW_GPIO, 0);
+	gpio_direction_output(LCD_BL_GPIO, 0);
+	/* hood add end */
 	// Workaround for pantherboard suspened issue (Unhandled fault: external abort on non-linefetch (0x1028) at 0xfa064010).
 	//gpio_direction_output(PANTHER_TS_GPIO, 1);
 }
@@ -339,6 +375,37 @@ static struct omap_dss_device panther_lcd_device = {
 	.set_backlight	= panther_set_bl_intensity,
 };
 #endif
+
+
+#ifdef BACKLIGHT_ENABLE
+static void omap3_bl_set(int level)
+{
+	unsigned char c;
+	if(level>100)return;
+	c = ((125 * (100 - level)) / 100) + 1;
+	twl_i2c_write_u8(TWL4030_MODULE_PWM0, c, TWL_PWM0ON);
+}
+
+static struct generic_bl_info omap3_panther_platform_data={
+	.name="panther-backlight",
+	.max_intensity=100,
+	.default_intensity =70,
+	.limit_mask=0,
+	.set_bl_intensity=omap3_bl_set,
+	.kick_battery=NULL,
+};
+
+static struct platform_device omap3_panther_bk_device={
+	.name="generic-bl",
+	.id = -1,
+	.dev ={
+	.platform_data=&omap3_panther_platform_data,
+	},
+};
+#endif
+
+
+
 
 static int panther_enable_dvi(struct omap_dss_device *dssdev)
 {
@@ -442,8 +509,8 @@ static struct regulator_consumer_supply panther_vmmc1_supply = {
 };
 
 #ifdef CONFIG_TI_ST
-
-#define PANTHER_BTEN_GPIO       15
+     
+#define PANTHER_BTEN_GPIO       (15)
 
 int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -623,8 +690,11 @@ static struct regulator_init_data panther_vdac = {
 static struct regulator_init_data panther_vpll2 = {
 	.constraints = {
 		.name			= "VDVI",
-		.min_uV			= 1800000,
-		.max_uV			= 1800000,
+		/* hood modify for debug */
+//		.min_uV			= 1800000,
+		.min_uV			= 3000000,
+//		.max_uV			= 1800000,
+		.max_uV			= 3000000,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL
 					| REGULATOR_MODE_STANDBY,
 		.valid_ops_mask		= REGULATOR_CHANGE_MODE
@@ -669,6 +739,8 @@ static struct regulator_init_data panther_vaux4 = {
 	.num_consumer_supplies  = 1,
 	.consumer_supplies      = &panther_vaux4_supply,
 };
+
+
 
 static struct twl4030_usb_data panther_usb_data = {
 	.usb_mode	= T2_USB_MODE_ULPI,
@@ -793,6 +865,31 @@ static struct twl4030_codec_data panther_codec_data = {
 	.audio = &panther_audio_data,
 };
 
+/* hood add for debug */
+static uint32_t board_keymap[] = {
+	KEY(0, 0, KEY_SEARCH),
+	KEY(0, 1, KEY_VOLUMEUP),
+
+	KEY(1, 0, KEY_BACK),
+	KEY(1, 1, KEY_HOME),
+
+	KEY(2, 0, KEY_VOLUMEDOWN),
+	KEY(2, 1, KEY_MENU)
+};
+
+static struct matrix_keymap_data board_map_data = {
+	.keymap			= board_keymap,
+	.keymap_size		= ARRAY_SIZE(board_keymap),
+};
+
+static struct twl4030_keypad_data ynws_kp_data = {
+	.keymap_data	= &board_map_data,
+	.rows		= 3,
+	.cols		= 2,
+	.rep		= 1,
+};
+/* hood add end */
+
 static struct twl4030_platform_data panther_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -801,6 +898,10 @@ static struct twl4030_platform_data panther_twldata = {
 	.usb		= &panther_usb_data,
 	.gpio		= &panther_gpio_data,
 	.codec		= &panther_codec_data,
+
+	/* hood add for debug */
+	.keypad		= &ynws_kp_data,
+
 // The following table shows the relationship of pantherboard's regulators.
 //
 //	[LDO NAME]	[SCHEMATIC SYMBOLE]	[CONNECTED DEVICE (Outer/Inner)]
@@ -824,9 +925,10 @@ static struct twl4030_platform_data panther_twldata = {
 #endif
 	.vdac		= &panther_vdac,
 	.vpll2		= &panther_vpll2,
-	.vaux3		= &panther_vaux3,
-	.vaux4		= &panther_vaux4,
-    .power      = &panther_script_data,
+	/* hood delete for debug */
+//	.vaux3		= &panther_vaux3,
+//	.vaux4		= &panther_vaux4,
+	.power      = &panther_script_data,
 };
 
 static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
@@ -838,11 +940,19 @@ static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
 	},
 };
 
-static struct i2c_board_info __initdata panther_i2c_eeprom[] = {
+/*meikee add for debug */
+static struct i2c_board_info __initdata panther_i2c_touchscreen[] = {
        {
-               I2C_BOARD_INFO("eeprom", 0x50),
+            I2C_BOARD_INFO("ft5x06", 0x38),
+		.irq = OMAP_GPIO_IRQ(PANTHER_TS_GPIO),
        },
+
+	{
+	    I2C_BOARD_INFO("pcf8563", 0x51),	
+	},
+	
 };
+/* meikee add end*/
 
 static int __init panther_i2c_init(void)
 {
@@ -854,7 +964,10 @@ static int __init panther_i2c_init(void)
 
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
-	omap_register_i2c_bus(3, 100, panther_i2c_eeprom, ARRAY_SIZE(panther_i2c_eeprom));
+	/*meikee add for debug*/
+	omap_register_i2c_bus(3, 100, panther_i2c_touchscreen, ARRAY_SIZE(panther_i2c_touchscreen));
+	/*meikee add end*/
+
 
 	return 0;
 }
@@ -929,11 +1042,18 @@ static struct platform_device *panther_devices[] __initdata = {
 	&keys_gpio,
 	&panther_dss_device,
 	&usb_mass_storage_device,
+#ifdef BACKLIGHT_ENABLE
+	&omap3_panther_bk_device,
+#endif
+
 #ifdef CONFIG_TI_ST
     &wl12xx_device,
     &btwilink_device,
 #endif
 };
+
+
+
 
 static void __init panther_flash_init(void)
 {
@@ -982,6 +1102,103 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
+	/*meikee add for debug*/
+	OMAP3_MUX(DSS_DATA3, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
+	/*meikee add end*/
+#endif
+#ifdef CONFIG_WL12XX_PLATFORM_DATA
+	/* WLAN IRQ - GPIO 112 */
+	OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+
+	/* WLAN POWER ENABLE - GPIO 16 */
+	OMAP3_MUX(ETK_D2, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+
+	/* BT EN ENABLE - GPIO 152 */
+	/* meikee add for debug */
+	OMAP3_MUX(MCBSP4_CLKX, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+
+	/* MMC2 SDIO pin muxes for WL12xx */
+	OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+	OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
+#endif
+	OMAP3_MUX(SYS_NIRQ, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP |
+            OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
+            OMAP_PIN_OFF_WAKEUPENABLE),
+      
+        OMAP3_MUX(UART2_RX, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+        
+        OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+
+       // OMAP3_MUX(CAM_D8,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+       // OMAP3_MUX(CAM_D9,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+       // OMAP3_MUX(CAM_D10,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+ 
+        OMAP3_MUX(DSS_DATA0,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(DSS_DATA1,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+        OMAP3_MUX(DSS_DATA2,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+
+	/*meikee add for debug*/
+        //OMAP3_MUX(DSS_DATA3,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+
+	/*meikee add for debug*/
+        //OMAP3_MUX(DSS_DATA4,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	/*meikee add end*/
+
+        OMAP3_MUX(DSS_DATA5,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+        
+	OMAP3_MUX(CSI2_DY0,OMAP_MUX_MODE4|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(CSI2_DX1,OMAP_MUX_MODE4|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(CSI2_DY1,OMAP_MUX_MODE4|OMAP_PIN_OFF_INPUT_PULLDOWN),
+
+	OMAP3_MUX(MCBSP1_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP1_DX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	
+	/* meikee add for debug  bt_en */
+	//OMAP3_MUX(MCBSP4_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	
+	//OMAP3_MUX(MCBSP4_DR,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	
+	OMAP3_MUX(MCBSP4_DX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP4_FSX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	/* add meikee for debug */
+	OMAP3_MUX(MCBSP_CLKS,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+ 
+	/* add meikee for debug */
+	OMAP3_MUX(MCBSP1_CLKR,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	/* add meikee for debug */
+	//OMAP3_MUX(MCBSP1_DR,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	/* add meikee for debug */
+	OMAP3_MUX(MCBSP1_FSR,OMAP_MUX_MODE4|OMAP_PIN_INPUT_PULLDOWN),
+
+
+
+
+	OMAP3_MUX(ETK_D9,OMAP_MUX_MODE2|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP3_DX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP3_DR,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP3_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCSPI1_SIMO,OMAP_MUX_MODE0|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(MCSPI1_SOMI,OMAP_MUX_MODE0|OMAP_PIN_INPUT_PULLDOWN),
+
+	OMAP3_MUX(ETK_CTL,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(ETK_D4,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(ETK_D5,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(ETK_D6,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(ETK_D7,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(ETK_D9,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(GPMC_A4,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+	OMAP3_MUX(GPMC_A9,OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
+
+    { .reg_offset = OMAP_MUX_TERMINATOR },
+};
+/* hood modify for debug */
+#if 0
+static struct omap_board_mux board_mux[] __initdata = {
+#ifdef CONFIG_TOUCHSCREEN_ADS7846
 	OMAP3_MUX(MCBSP1_FSR, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
 #endif
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
@@ -999,7 +1216,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP3_MUX(SDMMC2_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
 	OMAP3_MUX(SDMMC2_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
 #endif
-    OMAP3_MUX(SYS_NIRQ, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP |
+	OMAP3_MUX(SYS_NIRQ, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP |
             OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
             OMAP_PIN_OFF_WAKEUPENABLE),
         OMAP3_MUX(CAM_D0,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
@@ -1017,9 +1234,9 @@ static struct omap_board_mux board_mux[] __initdata = {
         OMAP3_MUX(CAM_D11,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
  
 
-        OMAP3_MUX(DSS_DATA0,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
-        OMAP3_MUX(DSS_DATA1,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
-        OMAP3_MUX(DSS_DATA2,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(DSS_DATA0,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(DSS_DATA1,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(DSS_DATA2,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
         OMAP3_MUX(DSS_DATA3,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
         OMAP3_MUX(DSS_DATA4,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
         OMAP3_MUX(DSS_DATA5,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
@@ -1044,8 +1261,8 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP3_MUX(MCBSP3_DR,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(MCBSP3_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(MCSPI1_SIMO,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
-	
 	OMAP3_MUX(MCSPI1_SOMI,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+
 	OMAP3_MUX(ETK_D4,OMAP_MUX_MODE2|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(ETK_D5,OMAP_MUX_MODE2|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(ETK_D6,OMAP_MUX_MODE2|OMAP_PIN_OFF_INPUT_PULLDOWN),
@@ -1054,6 +1271,7 @@ static struct omap_board_mux board_mux[] __initdata = {
     { .reg_offset = OMAP_MUX_TERMINATOR },
 };
 #endif
+#endif
 
 static struct omap_musb_board_data musb_board_data = {
 	.interface_type		= MUSB_INTERFACE_ULPI,
@@ -1061,22 +1279,147 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
+/* hood add for debug */
+static void sound_power_init(void)
+{
+#define EAR_SW_GPIO		21
+#define AUDIO_EN_GPIO		23
+
+	if (gpio_request(EAR_SW_GPIO, "ear switch") < 0)
+		printk(KERN_ERR "can't control ear switch\n");
+	gpio_direction_output(EAR_SW_GPIO, 0);
+
+	if (gpio_request(AUDIO_EN_GPIO, "audio enable") < 0)
+		printk(KERN_ERR "can't control audio power\n");
+	gpio_direction_output(AUDIO_EN_GPIO, 1);
+}
+
+
+/* meikee add for debuy  */
+static void wifi_power_init(void)
+{
+#define WIFI_POWER_EN_GPIO 	160
+	if (gpio_request(WIFI_POWER_EN_GPIO, "wifi power enable") < 0)
+		printk(KERN_ERR "can't control wifi power\n");
+	gpio_direction_output(WIFI_POWER_EN_GPIO, 1);
+
+
+/*#define BT_POWER_EN_GPIO 	15
+	if (gpio_request(BT_POWER_EN_GPIO, "BT power enable") < 0)
+		printk(KERN_ERR "can't control BT power\n");
+	gpio_direction_output(BT_POWER_EN_GPIO, 1);*/
+	
+}
+
+
+
+/* meikee add for debuy  */
+static void gps_set_init(void)
+{
+#define GPS_POWER_EN 	156
+#define GPS_UART_SW 	159
+#define GPS_RST 	157
+
+
+
+
+	if (gpio_request(GPS_POWER_EN, "gps power enable") < 0)
+		printk(KERN_ERR "can't control gps power\n");
+	gpio_direction_output(GPS_POWER_EN, 0);
+	
+	if (gpio_request(GPS_UART_SW, "gps uart sw") < 0)
+		printk(KERN_ERR "can't control gps uart\n");
+	gpio_direction_output(GPS_UART_SW, 1);
+
+	if (gpio_request(GPS_RST, "gps reset") < 0)
+		printk(KERN_ERR "can't control gps reset\n");
+	gpio_direction_output(GPS_RST, 1);
+
+
+	
+}
+
+
+/* meikee add for debuy  */
+static void rf_power_init(void)
+{
+#define RF_POWER_EN 	153
+#define RF_POWERA_EN 	17
+
+
+
+
+	/*if (gpio_request(RF_POWER_EN, "gps power enable") < 0)
+		printk(KERN_ERR "can't control gps power\n");
+	gpio_direction_output(RF_POWER_EN, 1);*/
+
+ 	printk("***********************************************************\n");
+	omap_mux_init_signal("gpio_153", OMAP_PIN_OUTPUT);	
+	gpio_direction_output(RF_POWER_EN, 0);
+
+	if (gpio_request(RF_POWERA_EN, "gps power enable") < 0)
+		printk(KERN_ERR "can't control gps power\n");
+	gpio_direction_output(RF_POWERA_EN, 1);
+	
+}
+
+
+
+static void usb_power_init(void)
+{
+#define USB_PHY_EN_GPIO 	13
+#define USB_HUB_EN_GPIO 	20
+#define USB_HUB_RET_GPIO	19
+#define USB_PHY_NRET_GPIO	18
+
+	if (gpio_request(USB_PHY_EN_GPIO, "usb phy enable") < 0)
+		printk(KERN_ERR "can't control usb phy power\n");
+	gpio_direction_output(USB_PHY_EN_GPIO, 1);
+
+	if (gpio_request(USB_HUB_EN_GPIO, "usb hub enable") < 0)
+		printk(KERN_ERR "can't control usb hub power\n");
+	gpio_direction_output(USB_HUB_EN_GPIO, 1);
+
+	if (gpio_request(USB_HUB_RET_GPIO, "usb hub reset") < 0)
+		printk(KERN_ERR "can't control usb hub reset\n");
+	gpio_direction_output(USB_HUB_RET_GPIO, 0);
+
+	if (gpio_request(USB_PHY_NRET_GPIO, "usb phy nreset") < 0)
+		printk(KERN_ERR "can't control usb phy nreset\n");
+	gpio_direction_output(USB_PHY_NRET_GPIO, 1);
+}
+/* hood add end */
+
 static void __init panther_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);
-	panther_i2c_init();
-	platform_add_devices(panther_devices,
-			ARRAY_SIZE(panther_devices));
-	omap_serial_init();
+	usb_power_init(); /* hood add for debug */
+	wifi_power_init(); /*meikee add for debug */
+        rf_power_init(); /* hood add for debug */
+	sound_power_init(); /* hood add for debug */
+	
 
+	/*meikee add for debug*/
+	ft5x06_dev_init();
+	panther_i2c_touchscreen[0].irq = gpio_to_irq(PANTHER_TS_GPIO); 
+      	printk("omap3_panther_init(board-panther.c-mach-omap2) irq is %x\n",panther_i2c_touchscreen[0].irq); 
+	/*meikee add end*/
+
+	panther_i2c_init();
+	
+	platform_add_devices(panther_devices,ARRAY_SIZE(panther_devices));
+	omap_serial_init();
+	gps_set_init();/*meikee add for debug */
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
 	panther_flash_init();
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
-	panther_config_mcspi4_mux();
-	panther_spi_board_info[0].irq = gpio_to_irq(PANTHER_TS_GPIO);
-	spi_register_board_info(panther_spi_board_info, ARRAY_SIZE(panther_spi_board_info));
-	ads7846_dev_init();
+	//panther_config_mcspi4_mux();
+	panther_config_mcspi1_mux();	/* hood add for debug */
+	//panther_spi_board_info[0].irq = gpio_to_irq(PANTHER_TS_GPIO);
+	//spi_register_board_info(panther_spi_board_info, ARRAY_SIZE(panther_spi_board_info));
+	//ads7846_dev_init();
+	
 #endif
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
@@ -1099,7 +1442,7 @@ static void __init panther_init(void)
     /* Config GPIO to output for BT */
 	omap_mux_init_gpio(PANTHER_BTEN_GPIO, OMAP_PIN_OUTPUT);
 #endif
-    omap3_beagle_pm_init();
+	omap3_beagle_pm_init();
 }
 
 MACHINE_START(PANTHER, "OMAP3 Panther Board")

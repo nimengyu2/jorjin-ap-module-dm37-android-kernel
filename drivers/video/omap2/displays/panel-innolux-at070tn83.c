@@ -33,6 +33,19 @@ static struct omap_video_timings at070tn83_panel_timings = {
 	.vfp		= 12,
 	.vsw		= 3,
 	.vbp		= 23,
+        
+       /* .x_res = 480,
+        .y_res = 272,
+
+        .pixel_clock    = 9600,
+
+        .hsw            = 41,
+        .hfp            = 2,
+        .hbp            = 2,
+
+        .vsw            = 10,
+        .vfp            = 2,
+        .vbp            = 2,*/
 };
 
 static int at070tn83_panel_power_on(struct omap_dss_device *dssdev)

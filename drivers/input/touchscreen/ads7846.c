@@ -1,1492 +1,561 @@
-/*
- * ADS7846 based touchscreen and sensor driver
+/* drivers/input/touchscreen/ft5x06_i2c_ts.c
  *
- * Copyright (c) 2005 David Brownell
- * Copyright (c) 2006 Nokia Corporation
- * Various changes: Imre Deak <imre.deak@nokia.com>
+ * Copyright (C) 2010 Pixcir, Inc.
  *
- * Using code from:
- *  - corgi_ts.c
- *	Copyright (C) 2004-2005 Richard Purdie
- *  - omap_ts.[hc], ads7846.h, ts_osk.c
- *	Copyright (C) 2002 MontaVista Software
- *	Copyright (C) 2004 Texas Instruments
- *	Copyright (C) 2005 Dirk Behme
+ * ft5x06_i2c_ts.c V1.0  support multi touch
+ * ft5x06_i2c_ts.c V1.5  add Calibration function:
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License version 2 as
- *  published by the Free Software Foundation.
+ * CALIBRATION_FLAG	1
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#include <linux/types.h>
-#include <linux/hwmon.h>
-#include <linux/init.h>
-#include <linux/err.h>
-#include <linux/sched.h>
-#include <linux/delay.h>
-#include <linux/input.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
-#include <linux/slab.h>
-#include <linux/gpio.h>
-#include <linux/spi/spi.h>
-#include <linux/spi/ads7846.h>
-#include <linux/regulator/consumer.h>
-#include <asm/irq.h>
+#include <linux/input.h>
+#include <linux/i2c.h>
+#include <asm/uaccess.h>
+#include <linux/smp_lock.h>
+#include <linux/delay.h>
+#include <linux/slab.h>  
 
-/*
- * This code has been heavily tested on a Nokia 770, and lightly
- * tested on other ads7846 devices (OSK/Mistral, Lubbock, Spitz).
- * TSC2046 is just newer ads7846 silicon.
- * Support for ads7843 tested on Atmel at91sam926x-EK.
- * Support for ads7845 has only been stubbed in.
- * Support for Analog Devices AD7873 and AD7843 tested.
- *
- * IRQ handling needs a workaround because of a shortcoming in handling
- * edge triggered IRQs on some platforms like the OMAP1/2. These
- * platforms don't handle the ARM lazy IRQ disabling properly, thus we
- * have to maintain our own SW IRQ disabled status. This should be
- * removed as soon as the affected platform's IRQ handling is fixed.
- *
- * App note sbaa036 talks in more detail about accurate sampling...
- * that ought to help in situations like LCDs inducing noise (which
- * can also be helped by using synch signals) and more generally.
- * This driver tries to utilize the measures described in the app
- * note. The strength of filtering can be set in the board-* specific
- * files.
- */
+#include <mach/gpio.h>
 
-#define TS_POLL_DELAY	1	/* ms delay before the first sample */
-#define TS_POLL_PERIOD	20	/* ms delay between samples */
+#define VIRTUAL_KEYS
+#define MAX_KEY_CNT         3
+#define DRIVER_VERSION 	"v1.0"
+#define DRIVER_AUTHOR 	"Sunyard"
+#define DRIVER_DESC 	       "Ft5x06 I2C Touchscreen Driver with tune fuction"
+#define DRIVER_LICENSE 	"GPL"
 
-/* this driver doesn't aim at the peak continuous sample rate */
-#define	SAMPLE_BITS	(8 /*cmd*/ + 16 /*sample*/ + 2 /* before, after */)
+#define IO_RST              73
+//#define IO_INT            153
+#define SYD_DBG             1
+#define SLAVE_ADDR		0x38
+#ifndef I2C_MAJOR
+	#define I2C_MAJOR 		125
+#endif	
+#define I2C_MINORS 		256
+#define  CALIBRATION_FLAG	1
 
-struct ts_event {
-	/*
-	 * For portability, we can't read 12 bit values using SPI (which
-	 * would make the controller deliver them as native byte order u16
-	 * with msbs zeroed).  Instead, we read them as two 8-bit values,
-	 * *** WHICH NEED BYTESWAPPING *** and range adjustment.
-	 */
-	u16	x;
-	u16	y;
-	u16	z1, z2;
-	bool	ignore;
-	u8	x_buf[3];
-	u8	y_buf[3];
+#define TOUCHSCREEN_MINX 0
+#define TOUCHSCREEN_MAXX 800  
+#define TOUCHSCREEN_MINY 0
+#define TOUCHSCREEN_MAXY 480
+
+int tsp_keycodes[MAX_KEY_CNT] ={
+       // KEY_SEARCH, //217
+        KEY_BACK,   //432
+        KEY_HOME,   //208
+        KEY_MENU    //130
 };
 
-/*
- * We allocate this separately to avoid cache line sharing issues when
- * driver is used with DMA-based SPI controllers (like atmel_spi) on
- * systems where main memory is not DMA-coherent (most non-x86 boards).
- */
-struct ads7846_packet {
-	u8			read_x, read_y, read_z1, read_z2, pwrdown;
-	u16			dummy;		/* for the pwrdown read */
-	struct ts_event		tc;
-	/* for ads7845 with mpc5121 psc spi we use 3-byte buffers */
-	u8			read_x_cmd[3], read_y_cmd[3], pwrdown_cmd[3];
+
+static unsigned char status_reg = 0;
+
+struct i2c_dev
+{
+	struct list_head list;
+	struct i2c_adapter *adap;
+	struct device *dev;
+
 };
 
-struct ads7846 {
-	struct input_dev	*input;
-	char			phys[32];
-	char			name[32];
+static struct i2c_driver ft5x06_i2c_ts_driver;
+static struct class *i2c_dev_class;
+static LIST_HEAD( i2c_dev_list);
+static DEFINE_SPINLOCK( i2c_dev_list_lock);
+/*********************************V2.0-Bee-0928-BOTTOM****************************************/
 
-	struct spi_device	*spi;
-	struct regulator	*reg;
+static struct workqueue_struct *ft5x06_wq;
 
-#if defined(CONFIG_HWMON) || defined(CONFIG_HWMON_MODULE)
-	struct attribute_group	*attr_group;
-	struct device		*hwmon;
+struct ft5x06_i2c_ts_data
+{
+	char	 phys[32];
+	struct i2c_client *client;
+	struct input_dev *input;
+	struct delayed_work work;
+	int irq;
+};
+
+static int ts_gpio_init()
+{
+
+      int ret ;
+
+      ret = gpio_request(IO_RST, "gpio-ts");
+      if(ret)
+	{
+            printk("get ts gpio failed \n");  
+            return -1;   
+	}
+	ret = gpio_direction_output(IO_RST, 1);
+      if(ret)
+	{
+	  	printk("can not set tp gpio output \n");    
+            return -1;    
+	} 
+      printk("config tp gpio successful\n");
+      return 0;
+
+}
+
+static int ts_gpio_ctrl(unsigned char level)
+{
+     gpio_set_value(IO_RST, level); 
+     return 0;
+}
+
+static int ts_gpio_free()
+{
+	gpio_free(IO_RST);
+      return 0;
+}
+
+
+#ifdef VIRTUAL_KEYS
+static ssize_t virtual_keys_show(struct kobject *kobj,
+            struct kobj_attribute *attr, char *buf)
+{
+
+     return sprintf(buf,
+         //__stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":-46:400:30:30"   //480-80
+
+         __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":850:432:20:20" //480-208
+
+         ":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":850:208:20:20" //480-272
+
+         ":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":850:130:20:20" //480 -432
+
+         "\n");
+}
+
+static struct kobj_attribute virtual_keys_attr = {
+    .attr = {
+        .name = "virtualkeys.ft5x06",
+        .mode = S_IRUGO,
+    },
+    .show = &virtual_keys_show,
+};
+
+static struct attribute *properties_attrs[] = {
+    &virtual_keys_attr.attr,
+    NULL
+
+};
+
+static struct attribute_group properties_attr_group = {
+    .attrs = properties_attrs,
+};
+
+
+
+static void virtual_keys_init(void)
+{
+    int ret;
+    struct kobject *properties_kobj;    
+    properties_kobj = kobject_create_and_add("board_properties", NULL);
+    if (properties_kobj)
+        ret = sysfs_create_group(properties_kobj,
+                     &properties_attr_group);
+    if (!properties_kobj || ret)
+        pr_err("failed to create board_properties\n");    
+}
 #endif
 
-	u16			model;
-	u16			vref_mv;
-	u16			vref_delay_usecs;
-	u16			x_plate_ohms;
-	u16			pressure_max;
 
-	bool			swap_xy;
+static void return_i2c_dev(struct i2c_dev *i2c_dev)
+{
+	spin_lock(&i2c_dev_list_lock);
+	list_del(&i2c_dev->list);
+	spin_unlock(&i2c_dev_list_lock);
+	kfree(i2c_dev);
+}
 
-	struct ads7846_packet	*packet;
-	struct ads7846_platform_data    *pdata;
+static struct i2c_dev *i2c_dev_get_by_minor(unsigned index)
+{
+	struct i2c_dev *i2c_dev;
+	i2c_dev = NULL;
 
-	struct spi_transfer	xfer[18];
-	struct spi_message	msg[5];
-	int			msg_count;
-	wait_queue_head_t	wait;
-
-	bool			pendown;
-
-	int			read_cnt;
-	int			read_rep;
-	int			last_read;
-
-	u16			debounce_max;
-	u16			debounce_tol;
-	u16			debounce_rep;
-
-	u16			penirq_recheck_delay_usecs;
-
-	struct mutex		lock;
-	bool			stopped;	/* P: lock */
-	bool			disabled;	/* P: lock */
-	bool			suspended;	/* P: lock */
-
-	int			(*filter)(void *data, int data_idx, int *val);
-	void			*filter_data;
-	void			(*filter_cleanup)(void *data);
-	int			(*get_pendown_state)(void);
-	int			gpio_pendown;
-
-	void			(*wait_for_sync)(void);
-};
-
-#ifdef CONFIG_MACH_OVERO
-#define OVERO_YMIN		0x0c8
-#define OVERO_YMAX		0xefd
+	spin_lock(&i2c_dev_list_lock);
+	list_for_each_entry(i2c_dev, &i2c_dev_list, list)
+	{
+		if (i2c_dev->adap->nr == index)
+		goto found;
+	}
+	i2c_dev = NULL;
+	found: spin_unlock(&i2c_dev_list_lock);
+#if SYD_DBG
+      printk(" ft5x06 i2c_dev_get_by_minor is Exiting\n");
 #endif
+	return i2c_dev;
+}
 
-#if defined(CONFIG_MACH_OMAP3EVM) && defined(CONFIG_MACH_FLASHBOARD)
-#define OMAP3EVM_XMIN		0x078
-#define OMAP3EVM_XMAX		0xF50
-#define OMAP3EVM_YMIN		0x140
-#define OMAP3EVM_YMAX		0xFA0
-#define OMAP3EVM_XRES		800
-#define OMAP3EVM_YRES	        480
+static struct i2c_dev *get_free_i2c_dev(struct i2c_adapter *adap)
+{
+	struct i2c_dev *i2c_dev;
+
+	if (adap->nr >= I2C_MINORS)
+	{
+		printk(KERN_ERR "i2c-dev: Out of device minors (%d)\n",
+				adap->nr);
+		return ERR_PTR(-ENODEV);
+	}
+
+	i2c_dev = kzalloc(sizeof(*i2c_dev), GFP_KERNEL);
+	if (!i2c_dev)
+		return ERR_PTR(-ENOMEM);
+	i2c_dev->adap = adap;
+
+	spin_lock(&i2c_dev_list_lock);
+	list_add_tail(&i2c_dev->list, &i2c_dev_list);
+	spin_unlock(&i2c_dev_list_lock);
+#if SYD_DBG
+      printk(" ft5x06 get_free_i2c_dev is Exiting\n");
 #endif
-
-#if defined(CONFIG_MACH_OMAP3EVM) && !defined(CONFIG_MACH_FLASHBOARD)
-#define OMAP3EVM_XMIN		0x136
-#define OMAP3EVM_XMAX		0xe84
-#define OMAP3EVM_YMIN		0x0d9
-#define OMAP3EVM_YMAX		0xec6
-#define OMAP3EVM_XRES		480
-#define OMAP3EVM_YRES	        640
-#endif
-
-#if defined(CONFIG_MACH_PANTHER)
-#define OMAP3EVM_XMIN		0x078
-#define OMAP3EVM_XMAX		0xF50
-#define OMAP3EVM_YMIN		0x140
-#define OMAP3EVM_YMAX		0xFA0
-#define OMAP3EVM_XRES		800
-#define OMAP3EVM_YRES	        480
-#endif
-
-/* leave chip selected when we're done, for quicker re-select? */
-#if	0
-#define	CS_CHANGE(xfer)	((xfer).cs_change = 1)
-#else
-#define	CS_CHANGE(xfer)	((xfer).cs_change = 0)
-#endif
-
-/*--------------------------------------------------------------------------*/
-
-/* The ADS7846 has touchscreen and other sensors.
- * Earlier ads784x chips are somewhat compatible.
- */
-#define	ADS_START		(1 << 7)
-#define	ADS_A2A1A0_d_y		(1 << 4)	/* differential */
-#define	ADS_A2A1A0_d_z1		(3 << 4)	/* differential */
-#define	ADS_A2A1A0_d_z2		(4 << 4)	/* differential */
-#define	ADS_A2A1A0_d_x		(5 << 4)	/* differential */
-#define	ADS_A2A1A0_temp0	(0 << 4)	/* non-differential */
-#define	ADS_A2A1A0_vbatt	(2 << 4)	/* non-differential */
-#define	ADS_A2A1A0_vaux		(6 << 4)	/* non-differential */
-#define	ADS_A2A1A0_temp1	(7 << 4)	/* non-differential */
-#define	ADS_8_BIT		(1 << 3)
-#define	ADS_12_BIT		(0 << 3)
-#define	ADS_SER			(1 << 2)	/* non-differential */
-#define	ADS_DFR			(0 << 2)	/* differential */
-#define	ADS_PD10_PDOWN		(0 << 0)	/* low power mode + penirq */
-#define	ADS_PD10_ADC_ON		(1 << 0)	/* ADC on */
-#define	ADS_PD10_REF_ON		(2 << 0)	/* vREF on + penirq */
-#define	ADS_PD10_ALL_ON		(3 << 0)	/* ADC + vREF on */
-
-#define	MAX_12BIT	((1<<12)-1)
-
-/* leave ADC powered up (disables penirq) between differential samples */
-#define	READ_12BIT_DFR(x, adc, vref) (ADS_START | ADS_A2A1A0_d_ ## x \
-	| ADS_12_BIT | ADS_DFR | \
-	(adc ? ADS_PD10_ADC_ON : 0) | (vref ? ADS_PD10_REF_ON : 0))
-
-#define	READ_Y(vref)	(READ_12BIT_DFR(y,  1, vref))
-#define	READ_Z1(vref)	(READ_12BIT_DFR(z1, 1, vref))
-#define	READ_Z2(vref)	(READ_12BIT_DFR(z2, 1, vref))
-
-#define	READ_X(vref)	(READ_12BIT_DFR(x,  1, vref))
-#define	PWRDOWN		(READ_12BIT_DFR(y,  0, 0))	/* LAST */
-
-/* single-ended samples need to first power up reference voltage;
- * we leave both ADC and VREF powered
- */
-#define	READ_12BIT_SER(x) (ADS_START | ADS_A2A1A0_ ## x \
-	| ADS_12_BIT | ADS_SER)
-
-#define	REF_ON	(READ_12BIT_DFR(x, 1, 1))
-#define	REF_OFF	(READ_12BIT_DFR(y, 0, 0))
-
-/* Must be called with ts->lock held */
-static void ads7846_stop(struct ads7846 *ts)
-{
-	if (!ts->disabled && !ts->suspended) {
-		/* Signal IRQ thread to stop polling and disable the handler. */
-		ts->stopped = true;
-		mb();
-		wake_up(&ts->wait);
-		disable_irq(ts->spi->irq);
-	}
+	return i2c_dev;
 }
 
-/* Must be called with ts->lock held */
-static void ads7846_restart(struct ads7846 *ts)
+
+static void ft5x06_ts_poscheck(struct work_struct *work)
 {
-	if (!ts->disabled && !ts->suspended) {
-		/* Tell IRQ thread that it may poll the device. */
-		ts->stopped = false;
-		mb();
-		enable_irq(ts->spi->irq);
-	}
-}
+	struct ft5x06_i2c_ts_data *tsdata = container_of(work,
+			struct ft5x06_i2c_ts_data,
+			work.work);
+	printk("enter poscheck.....\n\n");
+	int touch_event;
+	int posx1, posy1;
+	unsigned char Rdbuf[7],auotpnum[1],Wrbuf[1];
+	static int key_id=0x80;
 
-/* Must be called with ts->lock held */
-static void __ads7846_disable(struct ads7846 *ts)
-{
-	ads7846_stop(ts);
-	regulator_disable(ts->reg);
+	int i,ret;
 
-	/*
-	 * We know the chip's in low power mode since we always
-	 * leave it that way after every request
-	 */
-}
+	Wrbuf[0] = 0;
 
-/* Must be called with ts->lock held */
-static void __ads7846_enable(struct ads7846 *ts)
-{
-	regulator_enable(ts->reg);
-	ads7846_restart(ts);
-}
-
-static void ads7846_disable(struct ads7846 *ts)
-{
-	mutex_lock(&ts->lock);
-
-	if (!ts->disabled) {
-
-		if  (!ts->suspended)
-			__ads7846_disable(ts);
-
-		ts->disabled = true;
+	ret = i2c_master_send(tsdata->client, Wrbuf, 1);
+	
+	if (ret != 1)
+	{
+	     #if SYD_DBG
+		     printk("Unable to write to i2c touchscreen!\n");
+	     #endif
+		goto out;
 	}
 
-	mutex_unlock(&ts->lock);
-}
+	ret = i2c_master_recv(tsdata->client, Rdbuf, sizeof(Rdbuf));
 
-static void ads7846_enable(struct ads7846 *ts)
-{
-	mutex_lock(&ts->lock);
-
-	if (ts->disabled) {
-
-		ts->disabled = false;
-
-		if (!ts->suspended)
-			__ads7846_enable(ts);
+	if (ret != sizeof(Rdbuf))
+	{
+		dev_err(&tsdata->client->dev, "Unable to read i2c page!\n");
+		goto out;
 	}
 
-	mutex_unlock(&ts->lock);
-}
+	posx1 = (( (Rdbuf[5] & 0x0f )<< 8) | Rdbuf[6]);
+	posy1 = 480-(( (Rdbuf[3] & 0x0f )<< 8) | Rdbuf[4]);
+	
 
-/*--------------------------------------------------------------------------*/
+	touch_event = Rdbuf[3] & 0xc0;
 
-/*
- * Non-touchscreen sensors only use single-ended conversions.
- * The range is GND..vREF. The ads7843 and ads7835 must use external vREF;
- * ads7846 lets that pin be unconnected, to use internal vREF.
- */
-
-struct ser_req {
-	u8			ref_on;
-	u8			command;
-	u8			ref_off;
-	u16			scratch;
-	__be16			sample;
-	struct spi_message	msg;
-	struct spi_transfer	xfer[6];
-};
-
-struct ads7845_ser_req {
-	u8			command[3];
-	u8			pwrdown[3];
-	u8			sample[3];
-	struct spi_message	msg;
-	struct spi_transfer	xfer[2];
-};
-
-static int ads7846_read12_ser(struct device *dev, unsigned command)
-{
-	struct spi_device *spi = to_spi_device(dev);
-	struct ads7846 *ts = dev_get_drvdata(dev);
-	struct ser_req *req;
-	int status;
-	int use_internal;
-
-	req = kzalloc(sizeof *req, GFP_KERNEL);
-	if (!req)
-		return -ENOMEM;
-
-	spi_message_init(&req->msg);
-
-	/* FIXME boards with ads7846 might use external vref instead ... */
-	use_internal = (ts->model == 7846);
-
-	/* maybe turn on internal vREF, and let it settle */
-	if (use_internal) {
-		req->ref_on = REF_ON;
-		req->xfer[0].tx_buf = &req->ref_on;
-		req->xfer[0].len = 1;
-		spi_message_add_tail(&req->xfer[0], &req->msg);
-
-		req->xfer[1].rx_buf = &req->scratch;
-		req->xfer[1].len = 2;
-
-		/* for 1uF, settle for 800 usec; no cap, 100 usec.  */
-		req->xfer[1].delay_usecs = ts->vref_delay_usecs;
-		spi_message_add_tail(&req->xfer[1], &req->msg);
-	}
-
-	/* take sample */
-	req->command = (u8) command;
-	req->xfer[2].tx_buf = &req->command;
-	req->xfer[2].len = 1;
-	spi_message_add_tail(&req->xfer[2], &req->msg);
-
-	req->xfer[3].rx_buf = &req->sample;
-	req->xfer[3].len = 2;
-	spi_message_add_tail(&req->xfer[3], &req->msg);
-
-	/* REVISIT:  take a few more samples, and compare ... */
-
-	/* converter in low power mode & enable PENIRQ */
-	req->ref_off = PWRDOWN;
-	req->xfer[4].tx_buf = &req->ref_off;
-	req->xfer[4].len = 1;
-	spi_message_add_tail(&req->xfer[4], &req->msg);
-
-	req->xfer[5].rx_buf = &req->scratch;
-	req->xfer[5].len = 2;
-	CS_CHANGE(req->xfer[5]);
-	spi_message_add_tail(&req->xfer[5], &req->msg);
-
-	mutex_lock(&ts->lock);
-	ads7846_stop(ts);
-	status = spi_sync(spi, &req->msg);
-	ads7846_restart(ts);
-	mutex_unlock(&ts->lock);
-
-	if (status == 0) {
-		/* on-wire is a must-ignore bit, a BE12 value, then padding */
-		status = be16_to_cpu(req->sample);
-		status = status >> 3;
-		status &= 0x0fff;
-	}
-
-	kfree(req);
-	return status;
-}
-
-static int ads7845_read12_ser(struct device *dev, unsigned command)
-{
-	struct spi_device *spi = to_spi_device(dev);
-	struct ads7846 *ts = dev_get_drvdata(dev);
-	struct ads7845_ser_req *req;
-	int status;
-
-	req = kzalloc(sizeof *req, GFP_KERNEL);
-	if (!req)
-		return -ENOMEM;
-
-	spi_message_init(&req->msg);
-
-	req->command[0] = (u8) command;
-	req->xfer[0].tx_buf = req->command;
-	req->xfer[0].rx_buf = req->sample;
-	req->xfer[0].len = 3;
-	spi_message_add_tail(&req->xfer[0], &req->msg);
-
-	mutex_lock(&ts->lock);
-	ads7846_stop(ts);
-	status = spi_sync(spi, &req->msg);
-	ads7846_restart(ts);
-	mutex_unlock(&ts->lock);
-
-	if (status == 0) {
-		/* BE12 value, then padding */
-		status = be16_to_cpu(*((u16 *)&req->sample[1]));
-		status = status >> 3;
-		status &= 0x0fff;
-	}
-
-	kfree(req);
-	return status;
-}
-
-#if defined(CONFIG_HWMON) || defined(CONFIG_HWMON_MODULE)
-
-#define SHOW(name, var, adjust) static ssize_t \
-name ## _show(struct device *dev, struct device_attribute *attr, char *buf) \
-{ \
-	struct ads7846 *ts = dev_get_drvdata(dev); \
-	ssize_t v = ads7846_read12_ser(dev, \
-			READ_12BIT_SER(var) | ADS_PD10_ALL_ON); \
-	if (v < 0) \
-		return v; \
-	return sprintf(buf, "%u\n", adjust(ts, v)); \
-} \
-static DEVICE_ATTR(name, S_IRUGO, name ## _show, NULL);
-
-
-/* Sysfs conventions report temperatures in millidegrees Celsius.
- * ADS7846 could use the low-accuracy two-sample scheme, but can't do the high
- * accuracy scheme without calibration data.  For now we won't try either;
- * userspace sees raw sensor values, and must scale/calibrate appropriately.
- */
-static inline unsigned null_adjust(struct ads7846 *ts, ssize_t v)
-{
-	return v;
-}
-
-SHOW(temp0, temp0, null_adjust)		/* temp1_input */
-SHOW(temp1, temp1, null_adjust)		/* temp2_input */
-
-
-/* sysfs conventions report voltages in millivolts.  We can convert voltages
- * if we know vREF.  userspace may need to scale vAUX to match the board's
- * external resistors; we assume that vBATT only uses the internal ones.
- */
-static inline unsigned vaux_adjust(struct ads7846 *ts, ssize_t v)
-{
-	unsigned retval = v;
-
-	/* external resistors may scale vAUX into 0..vREF */
-	retval *= ts->vref_mv;
-	retval = retval >> 12;
-
-	return retval;
-}
-
-static inline unsigned vbatt_adjust(struct ads7846 *ts, ssize_t v)
-{
-	unsigned retval = vaux_adjust(ts, v);
-
-	/* ads7846 has a resistor ladder to scale this signal down */
-	if (ts->model == 7846)
-		retval *= 4;
-
-	return retval;
-}
-
-SHOW(in0_input, vaux, vaux_adjust)
-SHOW(in1_input, vbatt, vbatt_adjust)
-
-static struct attribute *ads7846_attributes[] = {
-	&dev_attr_temp0.attr,
-	&dev_attr_temp1.attr,
-	&dev_attr_in0_input.attr,
-	&dev_attr_in1_input.attr,
-	NULL,
-};
-
-static struct attribute_group ads7846_attr_group = {
-	.attrs = ads7846_attributes,
-};
-
-static struct attribute *ads7843_attributes[] = {
-	&dev_attr_in0_input.attr,
-	&dev_attr_in1_input.attr,
-	NULL,
-};
-
-static struct attribute_group ads7843_attr_group = {
-	.attrs = ads7843_attributes,
-};
-
-static struct attribute *ads7845_attributes[] = {
-	&dev_attr_in0_input.attr,
-	NULL,
-};
-
-static struct attribute_group ads7845_attr_group = {
-	.attrs = ads7845_attributes,
-};
-
-static int ads784x_hwmon_register(struct spi_device *spi, struct ads7846 *ts)
-{
-	struct device *hwmon;
-	int err;
-
-	/* hwmon sensors need a reference voltage */
-	switch (ts->model) {
-	case 7846:
-		if (!ts->vref_mv) {
-			dev_dbg(&spi->dev, "assuming 2.5V internal vREF\n");
-			ts->vref_mv = 2500;
+      #if SYD_DBG
+	     printk("touch event: posx=%d,posy=%d \n",posx1,posy1);
+      #endif
+	if (touch_event == 0x80)//touch
+	{
+  
+		if (posx1 > 0 && posx1 < 800)  
+		{       //report raw touch data
+			input_report_abs(tsdata->input, ABS_X, posx1);
+			input_report_abs(tsdata->input, ABS_Y, posy1);
+			input_report_key(tsdata->input, BTN_TOUCH, 1);
+			input_report_abs(tsdata->input, ABS_PRESSURE, 1);
 		}
-		break;
-	case 7845:
-	case 7843:
-		if (!ts->vref_mv) {
-			dev_warn(&spi->dev,
-				"external vREF for ADS%d not specified\n",
-				ts->model);
-			return 0;
-		}
-		break;
-	}
-
-	/* different chips have different sensor groups */
-	switch (ts->model) {
-	case 7846:
-		ts->attr_group = &ads7846_attr_group;
-		break;
-	case 7845:
-		ts->attr_group = &ads7845_attr_group;
-		break;
-	case 7843:
-		ts->attr_group = &ads7843_attr_group;
-		break;
-	default:
-		dev_dbg(&spi->dev, "ADS%d not recognized\n", ts->model);
-		return 0;
-	}
-
-	err = sysfs_create_group(&spi->dev.kobj, ts->attr_group);
-	if (err)
-		return err;
-
-	hwmon = hwmon_device_register(&spi->dev);
-	if (IS_ERR(hwmon)) {
-		sysfs_remove_group(&spi->dev.kobj, ts->attr_group);
-		return PTR_ERR(hwmon);
-	}
-
-	ts->hwmon = hwmon;
-	return 0;
-}
-
-static void ads784x_hwmon_unregister(struct spi_device *spi,
-				     struct ads7846 *ts)
-{
-	if (ts->hwmon) {
-		sysfs_remove_group(&spi->dev.kobj, ts->attr_group);
-		hwmon_device_unregister(ts->hwmon);
-	}
-}
-
-#else
-static inline int ads784x_hwmon_register(struct spi_device *spi,
-					 struct ads7846 *ts)
-{
-	return 0;
-}
-
-static inline void ads784x_hwmon_unregister(struct spi_device *spi,
-					    struct ads7846 *ts)
-{
-}
-#endif
-
-static ssize_t ads7846_pen_down_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	struct ads7846 *ts = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%u\n", ts->pendown);
-}
-
-static DEVICE_ATTR(pen_down, S_IRUGO, ads7846_pen_down_show, NULL);
-
-static ssize_t ads7846_disable_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	struct ads7846 *ts = dev_get_drvdata(dev);
-
-	return sprintf(buf, "%u\n", ts->disabled);
-}
-
-static ssize_t ads7846_disable_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t count)
-{
-	struct ads7846 *ts = dev_get_drvdata(dev);
-	unsigned long i;
-
-	if (strict_strtoul(buf, 10, &i))
-		return -EINVAL;
-
-	if (i)
-		ads7846_disable(ts);
-	else
-		ads7846_enable(ts);
-
-	return count;
-}
-
-static DEVICE_ATTR(disable, 0664, ads7846_disable_show, ads7846_disable_store);
-
-static struct attribute *ads784x_attributes[] = {
-	&dev_attr_pen_down.attr,
-	&dev_attr_disable.attr,
-	NULL,
-};
-
-static struct attribute_group ads784x_attr_group = {
-	.attrs = ads784x_attributes,
-};
-
-/*--------------------------------------------------------------------------*/
-
-static int get_pendown_state(struct ads7846 *ts)
-{
-	if (ts->get_pendown_state)
-		return ts->get_pendown_state();
-
-	return !gpio_get_value(ts->gpio_pendown);
-}
-
-static void null_wait_for_sync(void)
-{
-}
-
-static int ads7846_debounce_filter(void *ads, int data_idx, int *val)
-{
-	struct ads7846 *ts = ads;
-
-	if (!ts->read_cnt || (abs(ts->last_read - *val) > ts->debounce_tol)) {
-		/* Start over collecting consistent readings. */
-		ts->read_rep = 0;
-		/*
-		 * Repeat it, if this was the first read or the read
-		 * wasn't consistent enough.
-		 */
-		if (ts->read_cnt < ts->debounce_max) {
-			ts->last_read = *val;
-			ts->read_cnt++;
-			return ADS7846_FILTER_REPEAT;
-		} else {
-			/*
-			 * Maximum number of debouncing reached and still
-			 * not enough number of consistent readings. Abort
-			 * the whole sample, repeat it in the next sampling
-			 * period.
-			 */
-			ts->read_cnt = 0;
-			return ADS7846_FILTER_IGNORE;
-		}
-	} else {
-		if (++ts->read_rep > ts->debounce_rep) {
-			/*
-			 * Got a good reading for this coordinate,
-			 * go for the next one.
-			 */
-			ts->read_cnt = 0;
-			ts->read_rep = 0;
-			return ADS7846_FILTER_OK;
-		} else {
-			/* Read more values that are consistent. */
-			ts->read_cnt++;
-			return ADS7846_FILTER_REPEAT;
-		}
-	}
-}
-
-static int ads7846_no_filter(void *ads, int data_idx, int *val)
-{
-	return ADS7846_FILTER_OK;
-}
-
-static int ads7846_get_value(struct ads7846 *ts, struct spi_message *m)
-{
-	struct spi_transfer *t =
-		list_entry(m->transfers.prev, struct spi_transfer, transfer_list);
-
-	if (ts->model == 7845) {
-		return be16_to_cpup((__be16 *)&(((char*)t->rx_buf)[1])) >> 3;
-	} else {
-		/*
-		 * adjust:  on-wire is a must-ignore bit, a BE12 value, then
-		 * padding; built from two 8 bit values written msb-first.
-		 */
-		return be16_to_cpup((__be16 *)t->rx_buf) >> 3;
-	}
-}
-
-static void ads7846_update_value(struct spi_message *m, int val)
-{
-	struct spi_transfer *t =
-		list_entry(m->transfers.prev, struct spi_transfer, transfer_list);
-
-	*(u16 *)t->rx_buf = val;
-}
-
-static void ads7846_read_state(struct ads7846 *ts)
-{
-	struct ads7846_packet *packet = ts->packet;
-	struct spi_message *m;
-	int msg_idx = 0;
-	int val;
-	int action;
-	int error;
-
-	while (msg_idx < ts->msg_count) {
-
-		ts->wait_for_sync();
-
-		m = &ts->msg[msg_idx];
-		error = spi_sync(ts->spi, m);
-		if (error) {
-			dev_err(&ts->spi->dev, "spi_async --> %d\n", error);
-			packet->tc.ignore = true;
-			return;
-		}
-
-		/*
-		 * Last message is power down request, no need to convert
-		 * or filter the value.
-		 */
-		if (msg_idx < ts->msg_count - 1) {
-
-			val = ads7846_get_value(ts, m);
-
-			action = ts->filter(ts->filter_data, msg_idx, &val);
-			switch (action) {
-			case ADS7846_FILTER_REPEAT:
-				continue;
-
-			case ADS7846_FILTER_IGNORE:
-				packet->tc.ignore = true;
-				msg_idx = ts->msg_count - 1;
-				continue;
-
-			case ADS7846_FILTER_OK:
-				ads7846_update_value(m, val);
-				packet->tc.ignore = false;
-				msg_idx++;
-				break;
-
-			default:
-				BUG();
+		else if((posx1>=800) && (posx1<=900) )
+		{
+			//if (posy1 > 397 && posy1 < 403)
+			//{
+			//	key_id = 0;	 //search
+			//}
+			 if ( posy1 > 429 && posy1 < 435)
+			{
+				key_id = 0;	 //back
 			}
-		} else {
-			msg_idx++;
+			else if (posy1 > 205  && posy1 < 213 )
+			{
+				key_id = 1;	 //home	
+			}
+			else if ( posy1 > 127 && posy1 < 133)
+			{
+				key_id = 2;	 //menu
+			}				
+	            input_report_key(tsdata->input, tsp_keycodes[key_id], 1);		
 		}
-	}
-}
 
-static void ads7846_report_state(struct ads7846 *ts)
-{
-	struct ads7846_packet *packet = ts->packet;
-	struct ads7846_platform_data *pdata = ts->pdata;
-	unsigned int Rt;
-	u16 x, y, z1, z2;
-
-	/*
-	 * ads7846_get_value() does in-place conversion (including byte swap)
-	 * from on-the-wire format as part of debouncing to get stable
-	 * readings.
-	 */
-	if (ts->model == 7845) {
-		x = *(u16 *)packet->tc.x_buf;
-		y = *(u16 *)packet->tc.y_buf;
-		z1 = 0;
-		z2 = 0;
-	} else {
-		x = packet->tc.x;
-		y = packet->tc.y;
-		z1 = packet->tc.z1;
-		z2 = packet->tc.z2;
 	}
 
-	/* range filtering */
-	if (x == MAX_12BIT)
-		x = 0;
+	else if (touch_event == 0x40)//press
+	{
+		if(key_id !=0x80 )  	
+		{    
 
-	if (ts->model == 7843) {
-		Rt = ts->pressure_max / 2;
-	} else if (ts->model == 7845) {
-		if (get_pendown_state(ts))
-			Rt = ts->pressure_max / 2;
+			input_report_key(tsdata->input , tsp_keycodes[key_id], 0);	//tsdata->input ,keyboard
+
+			key_id=0x80;	
+		}
 		else
-			Rt = 0;
-		dev_vdbg(&ts->spi->dev, "x/y: %d/%d, PD %d\n", x, y, Rt);
-	} else if (likely(x && z1)) {
-		/* compute touch pressure resistance using equation #2 */
-		Rt = z2;
-		Rt -= z1;
-		Rt *= x;
-		Rt *= ts->x_plate_ohms;
-		Rt /= z1;
-		Rt = (Rt + 2047) >> 12;
-	} else {
-		Rt = 0;
-	}
-
-	/*
-	 * Sample found inconsistent by debouncing or pressure is beyond
-	 * the maximum. Don't report it to user space, repeat at least
-	 * once more the measurement
-	 */
-	if (packet->tc.ignore || Rt > ts->pressure_max) {
-		dev_vdbg(&ts->spi->dev, "ignored %d pressure %d\n",
-			 packet->tc.ignore, Rt);
-		return;
-	}
-
-	/*
-	 * Maybe check the pendown state before reporting. This discards
-	 * false readings when the pen is lifted.
-	 */
-	if (ts->penirq_recheck_delay_usecs) {
-		udelay(ts->penirq_recheck_delay_usecs);
-		if (!get_pendown_state(ts))
-			Rt = 0;
-	}
-
-	/*
-	 * NOTE: We can't rely on the pressure to determine the pen down
-	 * state, even this controller has a pressure sensor. The pressure
-	 * value can fluctuate for quite a while after lifting the pen and
-	 * in some cases may not even settle at the expected value.
-	 *
-	 * The only safe way to check for the pen up condition is in the
-	 * timer by reading the pen signal state (it's a GPIO _and_ IRQ).
-	 */
-	if (Rt) {
-		struct input_dev *input = ts->input;
-
-		if (ts->swap_xy)
-			swap(x, y);
-
-		if (!ts->pendown) {
-			input_report_key(input, BTN_TOUCH, 1);
-			ts->pendown = true;
-			dev_vdbg(&ts->spi->dev, "DOWN\n");
+		{     //report raw touch data
+		      input_report_key(tsdata->input, BTN_TOUCH, 0);
+			input_report_abs(tsdata->input, ABS_PRESSURE, 0);
 		}
 
-#ifdef CONFIG_MACH_OMAP3EVM
-#ifdef CONFIG_MACH_FLASHBOARD
-		x = ((pdata->x_max * (x - OMAP3EVM_XMIN)) / \
-				(OMAP3EVM_XMAX - OMAP3EVM_XMIN));
-		y = ((pdata->y_max * (y - OMAP3EVM_YMIN)) / \
-				(OMAP3EVM_YMAX - OMAP3EVM_YMIN));
-#else
-		x = pdata->x_max -
-			((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
-		y = pdata->y_max -
-			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
-#endif
-#endif
-
-#ifdef CONFIG_MACH_OVERO
-		y = pdata->y_max -
-			((pdata->y_max * (y - OVERO_YMIN)) / (OVERO_YMAX - OVERO_YMIN));
-#endif
-
-#ifdef CONFIG_MACH_PANTHER
-		//x = pdata->x_max -
-		//	((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
-		y = pdata->y_max -
-			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
-#endif
-
-		input_report_abs(input, ABS_X, x);
-		input_report_abs(input, ABS_Y, y);
-		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
-
-		input_sync(input);
-		dev_vdbg(&ts->spi->dev, "%4d/%4d/%4d\n", x, y, Rt);
 	}
+
+	input_sync(tsdata->input);
+
+	out: enable_irq(tsdata->irq);
+
 }
 
-static irqreturn_t ads7846_hard_irq(int irq, void *handle)
+static irqreturn_t ft5x06_ts_isr(int irq, void *dev_id)
 {
-	struct ads7846 *ts = handle;
+	struct ft5x06_i2c_ts_data *tsdata = dev_id;
 
-	return get_pendown_state(ts) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
-}
-
-
-static irqreturn_t ads7846_irq(int irq, void *handle)
-{
-	struct ads7846 *ts = handle;
-
-	/* Start with a small delay before checking pendown state */
-	msleep(TS_POLL_DELAY);
-
-	while (!ts->stopped && get_pendown_state(ts)) {
-
-		/* pen is down, continue with the measurement */
-		ads7846_read_state(ts);
-
-		if (!ts->stopped)
-			ads7846_report_state(ts);
-
-		wait_event_timeout(ts->wait, ts->stopped,
-				   msecs_to_jiffies(TS_POLL_PERIOD));
-	}
-
-	if (ts->pendown) {
-		struct input_dev *input = ts->input;
-
-		input_report_key(input, BTN_TOUCH, 0);
-		input_report_abs(input, ABS_PRESSURE, 0);
-		input_sync(input);
-
-		ts->pendown = false;
-		dev_vdbg(&ts->spi->dev, "UP\n");
-	}
+	disable_irq_nosync(irq);
+	queue_work(ft5x06_wq, &tsdata->work.work);
 
 	return IRQ_HANDLED;
 }
 
-static int ads7846_suspend(struct spi_device *spi, pm_message_t message)
+static int ft5x06_i2c_ts_probe(struct i2c_client *client,
+		const struct i2c_device_id *id)
 {
-	struct ads7846 *ts = dev_get_drvdata(&spi->dev);
 
-	mutex_lock(&ts->lock);
+	struct ft5x06_i2c_ts_data *tsdata;
+	struct input_dev *input;
+	struct device *dev;
+	struct i2c_dev *i2c_dev;
+	int error;
+	int ret;
 
-	if (!ts->suspended) {
+	#if SYD_DBG
+	      printk("ft5x06_i2c_ts_probe client name is %s, irq is %x\n",client->name, client->irq);
+	#endif
 
-		if (!ts->disabled)
-			__ads7846_disable(ts);
+      ts_gpio_init();
+      ts_gpio_ctrl(1);
+	mdelay(20);
+      ts_gpio_ctrl(0);
+	mdelay(50);
+      ts_gpio_ctrl(1);
+	mdelay(20);
 
-		if (device_may_wakeup(&ts->spi->dev))
-			enable_irq_wake(ts->spi->irq);
+	tsdata = kzalloc(sizeof(*tsdata), GFP_KERNEL);
+	if (!tsdata)
+	{
+		dev_err(&client->dev, "failed to allocate driver data!\n");
+		error = -ENOMEM;
+		goto exit_alloc_data_failed;		
+	}
+#ifdef VIRTUAL_KEYS
+      virtual_keys_init();
+#endif
+	dev_set_drvdata(&client->dev, tsdata);
 
-		ts->suspended = true;
+	input = input_allocate_device();
+	if (!input)
+	{
+		dev_err(&client->dev, "failed to allocate input device!\n");
+		error = -ENOMEM;
+		goto exit_input_dev_alloc_failed;
 	}
 
-	mutex_unlock(&ts->lock);
+	set_bit(EV_SYN, input->evbit);
+	set_bit(EV_KEY, input->evbit);
+	set_bit(EV_ABS, input->evbit);
+	set_bit(BTN_TOUCH, input->keybit);
+
+#ifdef  VIRTUAL_KEYS
+	input_set_capability(input, EV_KEY, KEY_SEARCH);
+	input_set_capability(input, EV_KEY, KEY_BACK);
+	input_set_capability(input, EV_KEY, KEY_HOME);
+	input_set_capability(input, EV_KEY, KEY_MENU);
+#endif
+	input_set_abs_params(input, ABS_X, TOUCHSCREEN_MINX, TOUCHSCREEN_MAXX, 0, 0);
+	input_set_abs_params(input, ABS_Y, TOUCHSCREEN_MINY, TOUCHSCREEN_MAXY, 0, 0);	
+
+	input_set_abs_params(input,ABS_PRESSURE,0,1,0,0);
+
+	snprintf(tsdata->phys, sizeof(tsdata->phys), "%s/input0", dev_name(&client->dev));
+
+	input->name = client->name;
+	input->phys = tsdata->phys;
+	input->id.bustype = BUS_I2C;
+	input->dev.parent = &client->dev;
+	input->keycode = tsp_keycodes; //add by jerry
+#if 0
+      input->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+      input->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+      input->absbit[0] = BIT(ABS_X) | BIT(ABS_Y);
+#endif
+
+	input_set_drvdata(input, tsdata);
+
+	tsdata->client = client;
+	tsdata->input = input;
+	printk("poscheck......\n\n");
+	
+	INIT_WORK(&tsdata->work.work, ft5x06_ts_poscheck);
+	printk("exit poschek.......\n\n");
+
+	tsdata->irq = client->irq; //touchscreen  Interrupt (GPIO 153) 
+
+	error = input_register_device(input);
+	if (error){
+		dev_err(&client->dev, "failed to register input device!\n");
+		goto exit_input_register_device_failed;
+	}
+	error = request_irq(tsdata->irq, ft5x06_ts_isr, IRQF_TRIGGER_FALLING, client->name, tsdata); //	
+	if (error)
+	{
+		dev_err(&client->dev, "Unable to request touchscreen IRQ.\n");
+		goto exit_irq_request_failed;
+	}
+
+	device_init_wakeup(&client->dev, 1);
+
+	/*********************************V2.0-Bee-0928-TOP****************************************/
+	i2c_dev = get_free_i2c_dev(client->adapter);
+	if (IS_ERR(i2c_dev))
+	{
+		error = PTR_ERR(i2c_dev);
+		goto  out;
+	}
+	/*********************************V2.0-Bee-0928-BOTTOM****************************************/
+	dev_err(&tsdata->client->dev, "insmod successfully!\n");	
+	return 0;
+	
+out:
+	free_irq(tsdata->irq, tsdata);
+exit_irq_request_failed:
+exit_input_register_device_failed:
+	input_free_device(input);
+exit_input_dev_alloc_failed:
+	kfree(tsdata);
+exit_alloc_data_failed:
+	return error;	
+
+}
+
+static int ft5x06_i2c_ts_remove(struct i2c_client *client)
+{
+	int error;
+	struct i2c_dev *i2c_dev;
+	struct ft5x06_i2c_ts_data *tsdata = dev_get_drvdata(&client->dev);
+	free_irq(tsdata->irq, tsdata);
+	/*********************************V2.0-Bee-0928-TOP****************************************/
+	i2c_dev = get_free_i2c_dev(client->adapter);
+	if (IS_ERR(i2c_dev))
+	{
+		error = PTR_ERR(i2c_dev);
+		return error;
+	}
+	return_i2c_dev(i2c_dev);
+	device_destroy(i2c_dev_class, MKDEV(I2C_MAJOR, client->adapter->nr));
+	/*********************************V2.0-Bee-0928-BOTTOM****************************************/
+	input_unregister_device(tsdata->input);
+	kfree(tsdata);
+	dev_set_drvdata(&client->dev, NULL);
+
+	ts_gpio_free(); // add by jerry
+	return 0;
+}
+
+static int ft5x06_i2c_ts_suspend(struct i2c_client *client, pm_message_t mesg)
+{
+	struct ft5x06_i2c_ts_data *tsdata = dev_get_drvdata(&client->dev);
+	
+	disable_irq(tsdata->irq);
+	
+	return 0;
+}
+
+static int ft5x06_i2c_ts_resume(struct i2c_client *client)
+{
+	struct ft5x06_i2c_ts_data *tsdata = dev_get_drvdata(&client->dev);
+	
+	enable_irq(tsdata->irq);
 
 	return 0;
 }
 
-static int ads7846_resume(struct spi_device *spi)
+
+
+static const struct i2c_device_id ft5x06_i2c_ts_id[] =
 {
-	struct ads7846 *ts = dev_get_drvdata(&spi->dev);
-
-	mutex_lock(&ts->lock);
-
-	if (ts->suspended) {
-
-		ts->suspended = false;
-
-		if (device_may_wakeup(&ts->spi->dev))
-			disable_irq_wake(ts->spi->irq);
-
-		if (!ts->disabled)
-			__ads7846_enable(ts);
-	}
-
-	mutex_unlock(&ts->lock);
-
-	return 0;
-}
-
-static int __devinit ads7846_setup_pendown(struct spi_device *spi, struct ads7846 *ts)
-{
-	struct ads7846_platform_data *pdata = spi->dev.platform_data;
-	int err;
-
-	/* REVISIT when the irq can be triggered active-low, or if for some
-	 * reason the touchscreen isn't hooked up, we don't need to access
-	 * the pendown state.
-	 */
-	if (!pdata->get_pendown_state && !gpio_is_valid(pdata->gpio_pendown)) {
-		dev_err(&spi->dev, "no get_pendown_state nor gpio_pendown?\n");
-		return -EINVAL;
-	}
-
-	if (pdata->get_pendown_state) {
-		ts->get_pendown_state = pdata->get_pendown_state;
-		/*
-		 * Initialize it to -1, required
-		 * in _remove function of the driver for freeing the gpio.
-		 */
-		ts->gpio_pendown = -1;
-		return 0;
-	}
-
-	err = gpio_request(pdata->gpio_pendown, "ads7846_pendown");
-	if (err) {
-		dev_err(&spi->dev, "failed to request pendown GPIO%d\n",
-			pdata->gpio_pendown);
-		return err;
-	}
-
-	ts->gpio_pendown = pdata->gpio_pendown;
-
-	return 0;
-}
-
-/*
- * Set up the transfers to read touchscreen state; this assumes we
- * use formula #2 for pressure, not #3.
- */
-static void __devinit ads7846_setup_spi_msg(struct ads7846 *ts,
-				const struct ads7846_platform_data *pdata)
-{
-	struct spi_message *m = &ts->msg[0];
-	struct spi_transfer *x = ts->xfer;
-	struct ads7846_packet *packet = ts->packet;
-	int vref = pdata->keep_vref_on;
-
-	if (ts->model == 7873) {
-		/*
-		 * The AD7873 is almost identical to the ADS7846
-		 * keep VREF off during differential/ratiometric
-		 * conversion modes.
-		 */
-		ts->model = 7846;
-		vref = 0;
-	}
-
-	ts->msg_count = 1;
-	spi_message_init(m);
-	m->context = ts;
-
-	if (ts->model == 7845) {
-		packet->read_y_cmd[0] = READ_Y(vref);
-		packet->read_y_cmd[1] = 0;
-		packet->read_y_cmd[2] = 0;
-		x->tx_buf = &packet->read_y_cmd[0];
-		x->rx_buf = &packet->tc.y_buf[0];
-		x->len = 3;
-		spi_message_add_tail(x, m);
-	} else {
-		/* y- still on; turn on only y+ (and ADC) */
-		packet->read_y = READ_Y(vref);
-		x->tx_buf = &packet->read_y;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.y;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-	}
-
-	/*
-	 * The first sample after switching drivers can be low quality;
-	 * optionally discard it, using a second one after the signals
-	 * have had enough time to stabilize.
-	 */
-	if (pdata->settle_delay_usecs) {
-		x->delay_usecs = pdata->settle_delay_usecs;
-
-		x++;
-		x->tx_buf = &packet->read_y;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.y;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-	}
-
-	ts->msg_count++;
-	m++;
-	spi_message_init(m);
-	m->context = ts;
-
-	if (ts->model == 7845) {
-		x++;
-		packet->read_x_cmd[0] = READ_X(vref);
-		packet->read_x_cmd[1] = 0;
-		packet->read_x_cmd[2] = 0;
-		x->tx_buf = &packet->read_x_cmd[0];
-		x->rx_buf = &packet->tc.x_buf[0];
-		x->len = 3;
-		spi_message_add_tail(x, m);
-	} else {
-		/* turn y- off, x+ on, then leave in lowpower */
-		x++;
-		packet->read_x = READ_X(vref);
-		x->tx_buf = &packet->read_x;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.x;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-	}
-
-	/* ... maybe discard first sample ... */
-	if (pdata->settle_delay_usecs) {
-		x->delay_usecs = pdata->settle_delay_usecs;
-
-		x++;
-		x->tx_buf = &packet->read_x;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.x;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-	}
-
-	/* turn y+ off, x- on; we'll use formula #2 */
-	if (ts->model == 7846) {
-		ts->msg_count++;
-		m++;
-		spi_message_init(m);
-		m->context = ts;
-
-		x++;
-		packet->read_z1 = READ_Z1(vref);
-		x->tx_buf = &packet->read_z1;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.z1;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-
-		/* ... maybe discard first sample ... */
-		if (pdata->settle_delay_usecs) {
-			x->delay_usecs = pdata->settle_delay_usecs;
-
-			x++;
-			x->tx_buf = &packet->read_z1;
-			x->len = 1;
-			spi_message_add_tail(x, m);
-
-			x++;
-			x->rx_buf = &packet->tc.z1;
-			x->len = 2;
-			spi_message_add_tail(x, m);
-		}
-
-		ts->msg_count++;
-		m++;
-		spi_message_init(m);
-		m->context = ts;
-
-		x++;
-		packet->read_z2 = READ_Z2(vref);
-		x->tx_buf = &packet->read_z2;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->tc.z2;
-		x->len = 2;
-		spi_message_add_tail(x, m);
-
-		/* ... maybe discard first sample ... */
-		if (pdata->settle_delay_usecs) {
-			x->delay_usecs = pdata->settle_delay_usecs;
-
-			x++;
-			x->tx_buf = &packet->read_z2;
-			x->len = 1;
-			spi_message_add_tail(x, m);
-
-			x++;
-			x->rx_buf = &packet->tc.z2;
-			x->len = 2;
-			spi_message_add_tail(x, m);
-		}
-	}
-
-	/* power down */
-	ts->msg_count++;
-	m++;
-	spi_message_init(m);
-	m->context = ts;
-
-	if (ts->model == 7845) {
-		x++;
-		packet->pwrdown_cmd[0] = PWRDOWN;
-		packet->pwrdown_cmd[1] = 0;
-		packet->pwrdown_cmd[2] = 0;
-		x->tx_buf = &packet->pwrdown_cmd[0];
-		x->len = 3;
-	} else {
-		x++;
-		packet->pwrdown = PWRDOWN;
-		x->tx_buf = &packet->pwrdown;
-		x->len = 1;
-		spi_message_add_tail(x, m);
-
-		x++;
-		x->rx_buf = &packet->dummy;
-		x->len = 2;
-	}
-
-	CS_CHANGE(*x);
-	spi_message_add_tail(x, m);
-}
-
-static int __devinit ads7846_probe(struct spi_device *spi)
-{
-	struct ads7846 *ts;
-	struct ads7846_packet *packet;
-	struct input_dev *input_dev;
-	struct ads7846_platform_data *pdata = spi->dev.platform_data;
-	unsigned long irq_flags;
-	int err;
-
-	if (!spi->irq) {
-		dev_dbg(&spi->dev, "no IRQ?\n");
-		return -ENODEV;
-	}
-
-	if (!pdata) {
-		dev_dbg(&spi->dev, "no platform data?\n");
-		return -ENODEV;
-	}
-
-	/* don't exceed max specified sample rate */
-	if (spi->max_speed_hz > (125000 * SAMPLE_BITS)) {
-		dev_dbg(&spi->dev, "f(sample) %d KHz?\n",
-				(spi->max_speed_hz/SAMPLE_BITS)/1000);
-		return -EINVAL;
-	}
-
-	/* We'd set TX word size 8 bits and RX word size to 13 bits ... except
-	 * that even if the hardware can do that, the SPI controller driver
-	 * may not.  So we stick to very-portable 8 bit words, both RX and TX.
-	 */
-	spi->bits_per_word = 8;
-	spi->mode = SPI_MODE_0;
-	err = spi_setup(spi);
-	if (err < 0)
-		return err;
-
-	ts = kzalloc(sizeof(struct ads7846), GFP_KERNEL);
-	packet = kzalloc(sizeof(struct ads7846_packet), GFP_KERNEL);
-	input_dev = input_allocate_device();
-	if (!ts || !packet || !input_dev) {
-		err = -ENOMEM;
-		goto err_free_mem;
-	}
-
-	dev_set_drvdata(&spi->dev, ts);
-
-	ts->packet = packet;
-	ts->pdata = pdata;
-	ts->spi = spi;
-	ts->input = input_dev;
-	ts->vref_mv = pdata->vref_mv;
-	ts->swap_xy = pdata->swap_xy;
-
-	mutex_init(&ts->lock);
-	init_waitqueue_head(&ts->wait);
-
-	ts->model = pdata->model ? : 7846;
-	ts->vref_delay_usecs = pdata->vref_delay_usecs ? : 100;
-	ts->x_plate_ohms = pdata->x_plate_ohms ? : 400;
-	ts->pressure_max = pdata->pressure_max ? : ~0;
-
-	if (pdata->filter != NULL) {
-		if (pdata->filter_init != NULL) {
-			err = pdata->filter_init(pdata, &ts->filter_data);
-			if (err < 0)
-				goto err_free_mem;
-		}
-		ts->filter = pdata->filter;
-		ts->filter_cleanup = pdata->filter_cleanup;
-	} else if (pdata->debounce_max) {
-		ts->debounce_max = pdata->debounce_max;
-		if (ts->debounce_max < 2)
-			ts->debounce_max = 2;
-		ts->debounce_tol = pdata->debounce_tol;
-		ts->debounce_rep = pdata->debounce_rep;
-		ts->filter = ads7846_debounce_filter;
-		ts->filter_data = ts;
-	} else {
-		ts->filter = ads7846_no_filter;
-	}
-
-	err = ads7846_setup_pendown(spi, ts);
-	if (err)
-		goto err_cleanup_filter;
-
-	if (pdata->penirq_recheck_delay_usecs)
-		ts->penirq_recheck_delay_usecs =
-				pdata->penirq_recheck_delay_usecs;
-
-	ts->wait_for_sync = pdata->wait_for_sync ? : null_wait_for_sync;
-
-	snprintf(ts->phys, sizeof(ts->phys), "%s/input0", dev_name(&spi->dev));
-	snprintf(ts->name, sizeof(ts->name), "ADS%d Touchscreen", ts->model);
-
-	input_dev->name = ts->name;
-	input_dev->phys = ts->phys;
-	input_dev->dev.parent = &spi->dev;
-
-	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
-	input_set_abs_params(input_dev, ABS_X,
-			pdata->x_min ? : 0,
-			pdata->x_max ? : MAX_12BIT,
-			0, 0);
-	input_set_abs_params(input_dev, ABS_Y,
-			pdata->y_min ? : 0,
-			pdata->y_max ? : MAX_12BIT,
-			0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE,
-			pdata->pressure_min, pdata->pressure_max, 0, 0);
-
-	ads7846_setup_spi_msg(ts, pdata);
-
-	ts->reg = regulator_get(&spi->dev, "vcc");
-	if (IS_ERR(ts->reg)) {
-		err = PTR_ERR(ts->reg);
-		dev_err(&spi->dev, "unable to get regulator: %d\n", err);
-		goto err_free_gpio;
-	}
-
-	err = regulator_enable(ts->reg);
-	if (err) {
-		dev_err(&spi->dev, "unable to enable regulator: %d\n", err);
-		goto err_put_regulator;
-	}
-
-	irq_flags = pdata->irq_flags ? : IRQF_TRIGGER_FALLING;
-	irq_flags |= IRQF_ONESHOT;
-
-	err = request_threaded_irq(spi->irq, ads7846_hard_irq, ads7846_irq,
-				   irq_flags, spi->dev.driver->name, ts);
-	if (err && !pdata->irq_flags) {
-		dev_info(&spi->dev,
-			"trying pin change workaround on irq %d\n", spi->irq);
-		irq_flags |= IRQF_TRIGGER_RISING;
-		err = request_threaded_irq(spi->irq,
-				  ads7846_hard_irq, ads7846_irq,
-				  irq_flags, spi->dev.driver->name, ts);
-	}
-
-	if (err) {
-		dev_dbg(&spi->dev, "irq %d busy?\n", spi->irq);
-		goto err_disable_regulator;
-	}
-
-	err = ads784x_hwmon_register(spi, ts);
-	if (err)
-		goto err_free_irq;
-
-	dev_info(&spi->dev, "touchscreen, irq %d\n", spi->irq);
-
-	/*
-	 * Take a first sample, leaving nPENIRQ active and vREF off; avoid
-	 * the touchscreen, in case it's not connected.
-	 */
-	if (ts->model == 7845)
-		ads7845_read12_ser(&spi->dev, PWRDOWN);
-	else
-		(void) ads7846_read12_ser(&spi->dev,
-				READ_12BIT_SER(vaux) | ADS_PD10_ALL_ON);
-
-	err = sysfs_create_group(&spi->dev.kobj, &ads784x_attr_group);
-	if (err)
-		goto err_remove_hwmon;
-
-	err = input_register_device(input_dev);
-	if (err)
-		goto err_remove_attr_group;
-
-	device_init_wakeup(&spi->dev, pdata->wakeup);
-
-	return 0;
-
- err_remove_attr_group:
-	sysfs_remove_group(&spi->dev.kobj, &ads784x_attr_group);
- err_remove_hwmon:
-	ads784x_hwmon_unregister(spi, ts);
- err_free_irq:
-	free_irq(spi->irq, ts);
- err_disable_regulator:
-	regulator_disable(ts->reg);
- err_put_regulator:
-	regulator_put(ts->reg);
- err_free_gpio:
-	if (ts->gpio_pendown != -1)
-		gpio_free(ts->gpio_pendown);
- err_cleanup_filter:
-	if (ts->filter_cleanup)
-		ts->filter_cleanup(ts->filter_data);
- err_free_mem:
-	input_free_device(input_dev);
-	kfree(packet);
-	kfree(ts);
-	return err;
-}
-
-static int __devexit ads7846_remove(struct spi_device *spi)
-{
-	struct ads7846 *ts = dev_get_drvdata(&spi->dev);
-
-	device_init_wakeup(&spi->dev, false);
-
-	sysfs_remove_group(&spi->dev.kobj, &ads784x_attr_group);
-
-	ads7846_disable(ts);
-	free_irq(ts->spi->irq, ts);
-
-	input_unregister_device(ts->input);
-
-	ads784x_hwmon_unregister(spi, ts);
-
-	regulator_disable(ts->reg);
-	regulator_put(ts->reg);
-
-	if (ts->gpio_pendown != -1)
-		gpio_free(ts->gpio_pendown);
-
-	if (ts->filter_cleanup)
-		ts->filter_cleanup(ts->filter_data);
-
-	kfree(ts->packet);
-	kfree(ts);
-
-	dev_dbg(&spi->dev, "unregistered touchscreen\n");
-
-	return 0;
-}
-
-static struct spi_driver ads7846_driver = {
-	.driver = {
-		.name	= "ads7846",
-		.bus	= &spi_bus_type,
-		.owner	= THIS_MODULE,
-	},
-	.probe		= ads7846_probe,
-	.remove		= __devexit_p(ads7846_remove),
-	.suspend	= ads7846_suspend,
-	.resume		= ads7846_resume,
+	{ "ft5x06", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE( i2c, ft5x06_i2c_ts_id);
+
+static struct i2c_driver ft5x06_i2c_ts_driver =
+{ 	.driver =
+	{
+		.owner = THIS_MODULE,
+		.name = "ft5x06_touchscreen", 
+	}, 
+	.probe = ft5x06_i2c_ts_probe, 
+	.remove = ft5x06_i2c_ts_remove,
+	.suspend = ft5x06_i2c_ts_suspend, 
+	.resume = ft5x06_i2c_ts_resume,
+	.id_table = ft5x06_i2c_ts_id, 
 };
 
-static int __init ads7846_init(void)
+static int __init ft5x06_i2c_ts_init(void)
 {
-	return spi_register_driver(&ads7846_driver);
-}
-module_init(ads7846_init);
+	int ret;
+	
+	ft5x06_wq = create_singlethread_workqueue("ft5x06_wq");
+	if(!ft5x06_wq)
+	return -ENOMEM;
+	
 
-static void __exit ads7846_exit(void)
+	i2c_dev_class = class_create(THIS_MODULE, "ft5x06_i2c_dev");
+	if (IS_ERR(i2c_dev_class))
+	{
+		ret = PTR_ERR(i2c_dev_class);
+		class_destroy(i2c_dev_class);
+	}
+	#if SYD_DBG
+	      printk("ft5x06_i2c_ts_init is Entrying\n");
+	#endif
+	/********************************V2.0-Bee-0928-BOTTOM******************************************/
+	return i2c_add_driver(&ft5x06_i2c_ts_driver);
+}
+
+static void __exit ft5x06_i2c_ts_exit(void)
 {
-	spi_unregister_driver(&ads7846_driver);
+	i2c_del_driver(&ft5x06_i2c_ts_driver);
+	/********************************V2.0-Bee-0928-TOP******************************************/
+	class_destroy(i2c_dev_class);
+	unregister_chrdev(I2C_MAJOR,"ft5x06_i2c_ts");
+	/********************************V2.0-Bee-0928-BOTTOM******************************************/
+	if(ft5x06_wq)
+		destroy_workqueue(ft5x06_wq);
 }
-module_exit(ads7846_exit);
 
-MODULE_DESCRIPTION("ADS7846 TouchScreen Driver");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("spi:ads7846");
+MODULE_AUTHOR(DRIVER_AUTHOR);
+MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_LICENSE(DRIVER_LICENSE);
+
+module_init( ft5x06_i2c_ts_init);
+module_exit( ft5x06_i2c_ts_exit);
+

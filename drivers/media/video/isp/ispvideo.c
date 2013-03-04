@@ -161,11 +161,24 @@ static int isp_video_validate_pipeline(struct isp_pipeline *pipe)
 		if (ret < 0 && ret != -ENOIOCTLCMD)
 			return -EPIPE;
 
+		/* hood modify for debug */
+		#if 0
 		/* Check if the two ends match */
 		if (fmt_source.format.code != fmt_sink.format.code ||
 		    fmt_source.format.width != fmt_sink.format.width ||
 		    fmt_source.format.height != fmt_sink.format.height)
 			return -EPIPE;
+		#endif
+
+		/* Check if the two ends match */
+		if (fmt_source.format.code != fmt_sink.format.code ||
+		    fmt_source.format.width != fmt_sink.format.width ||
+		    fmt_source.format.height != fmt_sink.format.height)
+		{
+			ret = v4l2_subdev_call(subdev, pad, set_fmt, NULL, &fmt_sink);
+			if(ret < 0)
+				printk("---- set fmt failed ----\n");
+		}
 	}
 
 	return 0;

@@ -4463,6 +4463,7 @@ do_wait_for_common(struct completion *x, long timeout, int state)
 static long __sched
 wait_for_common(struct completion *x, long timeout, int state)
 {
+	//printk("enter wait_for_common.............\n");
 	might_sleep();
 
 	spin_lock_irq(&x->wait.lock);
@@ -4499,6 +4500,7 @@ EXPORT_SYMBOL(wait_for_completion);
 unsigned long __sched
 wait_for_completion_timeout(struct completion *x, unsigned long timeout)
 {
+	//printk("enter func wait_for_completion_timeout.......\n");
 	return wait_for_common(x, timeout, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_timeout);
