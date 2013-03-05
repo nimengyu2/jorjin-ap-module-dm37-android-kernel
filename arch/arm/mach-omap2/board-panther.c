@@ -1285,13 +1285,13 @@ static void sound_power_init(void)
 #define EAR_SW_GPIO		21
 #define AUDIO_EN_GPIO		23
 
-	if (gpio_request(EAR_SW_GPIO, "ear switch") < 0)
-		printk(KERN_ERR "can't control ear switch\n");
-	gpio_direction_output(EAR_SW_GPIO, 0);
+	//if (gpio_request(EAR_SW_GPIO, "ear switch") < 0)
+	//	printk(KERN_ERR "can't control ear switch\n");
+	//gpio_direction_output(EAR_SW_GPIO, 0);
 
-	if (gpio_request(AUDIO_EN_GPIO, "audio enable") < 0)
-		printk(KERN_ERR "can't control audio power\n");
-	gpio_direction_output(AUDIO_EN_GPIO, 1);
+	//if (gpio_request(AUDIO_EN_GPIO, "audio enable") < 0)
+	//	printk(KERN_ERR "can't control audio power\n");
+	//gpio_direction_output(AUDIO_EN_GPIO, 1);
 }
 
 
@@ -1354,7 +1354,8 @@ static void rf_power_init(void)
 	gpio_direction_output(RF_POWER_EN, 1);*/
 
  	printk("***********************************************************\n");
-	omap_mux_init_signal("gpio_153", OMAP_PIN_OUTPUT);	
+	//omap_mux_init_signal("gpio_153", OMAP_PIN_OUTPUT);	
+	omap_mux_init_gpio(153, OMAP_PIN_OUTPUT);
 	gpio_direction_output(RF_POWER_EN, 0);
 
 	if (gpio_request(RF_POWERA_EN, "gps power enable") < 0)
@@ -1421,6 +1422,14 @@ static void __init panther_init(void)
 	//ads7846_dev_init();
 	
 #endif
+
+	omap_mux_init_gpio(23, OMAP_PIN_OUTPUT);
+	//if(gpio_request(23, "audio_en")<0)
+	//	printk("AAAA:can't request pin 23\n");
+	//else
+	//	printk("AAAA:can request pin 23\n");
+	//gpio_direction_output(23, 1);
+	
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);

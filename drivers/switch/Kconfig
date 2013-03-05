@@ -12,4 +12,9 @@ config SWITCH_GPIO
 	help
 	  Say Y here to enable GPIO based switch support.
 
+config SWITCH_AUDIO
+	tristate "AUDIO Swith support"
+	help
+	  Say Y here to enable AUDIO switch support.
+
 endif # SWITCH
