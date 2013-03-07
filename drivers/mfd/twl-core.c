@@ -127,6 +127,7 @@
 /* Last - for index max*/
 #define TWL4030_MODULE_LAST		TWL4030_MODULE_SECURED_REG
 
+// twlÓĞ4¸ö´Ó»ú  
 #define TWL_NUM_SLAVES		4
 
 #if defined(CONFIG_INPUT_TWL4030_PWRBUTTON) \
@@ -146,11 +147,11 @@
 /* Base Address defns for twl4030_map[] */
 
 /* subchip/slave 0 - USB ID */
-#define TWL4030_BASEADD_USB		0x0000
+#define TWL4030_BASEADD_USB		0x0000  // »ù±¾µØÖ·´Ó0x00¿ªÊ¼
 
 /* subchip/slave 1 - AUD ID */
 #define TWL4030_BASEADD_AUDIO_VOICE	0x0000
-#define TWL4030_BASEADD_GPIO		0x0098
+#define TWL4030_BASEADD_GPIO		0x0098   // ¼Ä´æÆ÷µÄ»ù±¾µØÖ·´Ó0x98¿ªÊ¼
 #define TWL4030_BASEADD_INTBR		0x0085
 #define TWL4030_BASEADD_PIH		0x0080
 #define TWL4030_BASEADD_TEST		0x004C
@@ -172,8 +173,8 @@
 						  one */
 
 /* subchip/slave 3 - POWER ID */
-#define TWL4030_BASEADD_BACKUP		0x0014
-#define TWL4030_BASEADD_INT		0x002E
+#define TWL4030_BASEADD_BACKUP		0x0014  // ¼Ä´æÆ÷µÄ»ù±¾µØÖ·´Ó0x14¿ªÊ¼
+#define TWL4030_BASEADD_INT		0x002E  // ¼Ä´æÆ÷µÄ»ù±¾µØÖ·´Ó0x2e¿ªÊ¼
 #define TWL4030_BASEADD_PM_MASTER	0x0036
 #define TWL4030_BASEADD_PM_RECEIVER	0x005B
 #define TWL4030_BASEADD_RTC		0x001C
@@ -182,7 +183,7 @@
 /* Triton Core internal information (END) */
 
 
-/* subchip/slave 0 0x48 - POWER */
+/* subchip/slave 0 0x48 - POWER  µçÔ´¹ÜÀí*/
 #define TWL6030_BASEADD_RTC		0x0000
 #define TWL6030_BASEADD_MEM		0x0017
 #define TWL6030_BASEADD_PM_MASTER	0x001F
@@ -240,27 +241,34 @@ unsigned int twl_rev(void)
 EXPORT_SYMBOL(twl_rev);
 
 /* Structure for each TWL4030/TWL6030 Slave */
+// Ã¿¸ötwl4030µÄ´Ó»ú¶¼»áÓĞÕâÃ´¸ö½á¹¹Ìå
 struct twl_client {
-	struct i2c_client *client;
-	u8 address;
+	struct i2c_client *client;// iic´ÓÉè±¸
+	u8 address;//Õâ¸ö´ÓÉè±¸µÄiicµØÖ·£
 
 	/* max numb of i2c_msg required is for read =2 */
-	struct i2c_msg xfer_msg[2];
+	struct i2c_msg xfer_msg[2];//ĞèÒªÁ½¸öi2c_msg
 
 	/* To lock access to xfer_msg */
+	// ²Ù×÷xfer msgµÄËø
 	struct mutex xfer_lock;
 };
 
+// 4¸ö´Ó»úµÄiicµØÖ·£¬´æÔÚÕâÀï
 static struct twl_client twl_modules[TWL_NUM_SLAVES];
 
 
 /* mapping the module id to slave id and base address */
 struct twl_mapping {
-	unsigned char sid;	/* Slave ID */
-	unsigned char base;	/* base address */
+	unsigned char sid;	/* Slave ID ´Ó»úidºÅ*/
+	// Õâ¸ö»ùµØÖ·ÓÃÓÚ¿ìËÙ¶ÁÈ¡ĞèÒªµÄ¼Ä´æÆ÷£¬±ÈÈçaudio_voiceµÄ´ÓµÚ¶ş¸ö´Ó´ÓÉè±¸
+	// µÄ¼Ä´æÆ÷ÖĞµÄ£¬¾ßÌåµÄÆğÊ¼µØÖ·ÎªTWL4030_BASEADD_AUDIO_VOICE
+	unsigned char base;	/* base address »ù±¾µØÖ·*/
 };
-static struct twl_mapping *twl_map;
+static struct twl_mapping *twl_map; // twlÓ³Éä
 
+// twl4030Ó³Éä½á¹¹Ìå
+// ¸ù¾İTWL4030_MODULE_PM_MASTERÀ´Ñ¡Ôñ¶ÔÓ¦µÄµØÖ·
 static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	/*
 	 * NOTE:  don't change this table without updating the
@@ -268,7 +276,7 @@ static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	 * so they continue to match the order in this table.
 	 */
 
-	{ 0, TWL4030_BASEADD_USB },
+	{ 0, TWL4030_BASEADD_USB },   // usbÆäÊµµØÖ·  ÊôÓÚµÚ1¸ö´ÓÉè±¸
 
 	{ 1, TWL4030_BASEADD_AUDIO_VOICE },
 	{ 1, TWL4030_BASEADD_GPIO },
@@ -294,9 +302,10 @@ static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 	{ 3, TWL4030_BASEADD_PM_MASTER },
 	{ 3, TWL4030_BASEADD_PM_RECEIVER },
 	{ 3, TWL4030_BASEADD_RTC },
-	{ 3, TWL4030_BASEADD_SECURED_REG },
+	{ 3, TWL4030_BASEADD_SECURED_REG },  // ²»Í¬µÄ²»Ò»Ñù
 };
 
+// twl6030 pmuµÄÓ³Éä½á¹¹Ìå
 static struct twl_mapping twl6030_map[] = {
 	/*
 	 * NOTE:  don't change this table without updating the
@@ -336,18 +345,22 @@ static struct twl_mapping twl6030_map[] = {
 /*----------------------------------------------------------------------*/
 
 /* Exported Functions */
-
+// À©Õ¹¹¦ÄÜ
 /**
  * twl_i2c_write - Writes a n bit register in TWL4030/TWL5030/TWL60X0
- * @mod_no: module number
- * @value: an array of num_bytes+1 containing data to write
- * @reg: register address (just offset will do)
- * @num_bytes: number of bytes to transfer
+ *  ÏòpmuÖĞĞ´n bitµÄ¼Ä´æÆ÷
+ * @mod_no: module number   Ä£¿éµÄºÅÂë£¬±ÈÈçËµÊÇTWL4030_MODULE_PM_MASTER£¬
+ *         Èç¹û²é³öÀ´ÊÇ´ÓÉè±¸0x49ÉÏµÄ¼Ä´æÆ÷£¬¾ÍÍùÕâ¸öµØÖ·Ğ´
+ * @value: an array of num_bytes+1 containing data to write  
+ *         ĞèÒªĞ´½øÈëµÄÊı¾İ
+ * @reg: register address (just offset will do) ĞèÒª²Ù×÷µÄ¼Ä´æÆ÷µÄÆ«ÒÆµØÖ·
+ *                 »ùÓÚÊäÈëmodule»ùµØÖ·  
+ * @num_bytes: number of bytes to transfer  Òª´«ÊäµÄÊı¾İ¸öÊı
  *
  * IMPORTANT: for 'value' parameter: Allocate value num_bytes+1 and
  * valid data starts at Offset 1.
  *
- * Returns the result of operation - 0 is success
+ * Returns the result of operation - 0 is success ³É¹¦·µ»Ø0
  */
 int twl_i2c_write(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes)
 {
@@ -356,12 +369,14 @@ int twl_i2c_write(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes)
 	struct twl_client *twl;
 	struct i2c_msg *msg;
 
+	// ÅĞ¶ÏÄ£×éºÅ²»ÄÜ³¬±ê
 	if (unlikely(mod_no > TWL_MODULE_LAST)) {
 		pr_err("%s: invalid module number %d\n", DRIVER_NAME, mod_no);
 		return -EPERM;
 	}
-	sid = twl_map[mod_no].sid;
-	twl = &twl_modules[sid];
+	// »ñÈ¡
+	sid = twl_map[mod_no].sid;  // ´Ó»úºÅ£¬0£¬1£¬2£¬3
+	twl = &twl_modules[sid];  // »ñÈ¡ĞèÒª²Ù×÷µÄ´ÓÉè±¸µÄ½á¹¹Ìå
 
 	if (unlikely(!inuse)) {
 		pr_err("%s: client %d is not initialized\n", DRIVER_NAME, sid);
@@ -372,17 +387,20 @@ int twl_i2c_write(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes)
 	 * [MSG1]: fill the register address data
 	 * fill the data Tx buffer
 	 */
-	msg = &twl->xfer_msg[0];
-	msg->addr = twl->address;
-	msg->len = num_bytes + 1;
-	msg->flags = 0;
-	msg->buf = value;
+	msg = &twl->xfer_msg[0];// »ñÈ¡
+	msg->addr = twl->address;  // Éè±¸µÄi2cµØÖ·
+	msg->len = num_bytes + 1;  // ÒªĞ´µÄÊı¾İ³¤¶È
+	msg->flags = 0;// Ğ´²Ù×÷
+	msg->buf = value;  // ÒªĞ´µÄÊı¾İµÄÊı×éÍ·
 	/* over write the first byte of buffer with the register address */
+	// ¸²¸Ç»º³åµÄµÚÒ»¸ö×Ö½ÚÎª¼Ä´æÆ÷µÄµØÖ·
 	*value = twl_map[mod_no].base + reg;
+	// ¿ªÊ¼´«Êä
 	ret = i2c_transfer(twl->client->adapter, twl->xfer_msg, 1);
 	mutex_unlock(&twl->xfer_lock);
 
 	/* i2c_transfer returns number of messages transferred */
+	// Èç¹û´«Êä³É¹¦£¬Ôò»á·µ»Ø³É¹¦·¢ËÍÏûÏ¢µÄÊı¾İ
 	if (ret != 1) {
 		pr_err("%s: i2c_write failed to transfer all messages\n",
 			DRIVER_NAME);
@@ -398,10 +416,11 @@ EXPORT_SYMBOL(twl_i2c_write);
 
 /**
  * twl_i2c_read - Reads a n bit register in TWL4030/TWL5030/TWL60X0
- * @mod_no: module number
- * @value: an array of num_bytes containing data to be read
- * @reg: register address (just offset will do)
- * @num_bytes: number of bytes to transfer
+ *  ´Ótwl4030Éè±¸ÖĞ¶ÁÈ¡n¸öbitµÄ¼Ä´æÆ÷
+ * @mod_no: module number  ĞèÒª²Ù×÷µÄÄ£¿éµÄºÅÂë
+ * @value: an array of num_bytes containing data to be read ¶ÁÈ¡Êı¾İ´æ´¢µØ·½
+ * @reg: register address (just offset will do) ´ÓÉè±¸iic¼Ä´æÆ÷µÄµØÖ·
+ * @num_bytes: number of bytes to transfer  ĞèÒª´«ÊäµÄÊı¾İ¸öÊı
  *
  * Returns result of operation - num_bytes is success else failure.
  */
@@ -429,19 +448,21 @@ int twl_i2c_read(u8 mod_no, u8 *value, u8 reg, unsigned num_bytes)
 	msg = &twl->xfer_msg[0];
 	msg->addr = twl->address;
 	msg->len = 1;
-	msg->flags = 0;	/* Read the register value */
+	msg->flags = 0;	/* Read the register value Ğ´¶ÁÈ¡¼Ä´æÆ÷µÄµØÖ· */
 	val = twl_map[mod_no].base + reg;
-	msg->buf = &val;
+	msg->buf = &val; 
 	/* [MSG2] fill the data rx buffer */
 	msg = &twl->xfer_msg[1];
 	msg->addr = twl->address;
-	msg->flags = I2C_M_RD;	/* Read the register value */
+	msg->flags = I2C_M_RD;	/* Read the register value ¶ÁÈ¡Êı¾İ²Ù×÷ */
 	msg->len = num_bytes;	/* only n bytes */
 	msg->buf = value;
+	// ¿ªÊ¼´«Êä
 	ret = i2c_transfer(twl->client->adapter, twl->xfer_msg, 2);
 	mutex_unlock(&twl->xfer_lock);
 
 	/* i2c_transfer returns number of messages transferred */
+	// ´«Êä³É¹¦»á·µ»Ø³É¹¦´«ÊäµÄ¸öÊı
 	if (ret != 2) {
 		pr_err("%s: i2c_read failed to transfer all messages\n",
 			DRIVER_NAME);
@@ -457,33 +478,41 @@ EXPORT_SYMBOL(twl_i2c_read);
 
 /**
  * twl_i2c_write_u8 - Writes a 8 bit register in TWL4030/TWL5030/TWL60X0
- * @mod_no: module number
- * @value: the value to be written 8 bit
- * @reg: register address (just offset will do)
+ * @mod_no: module number ±íÊ¾µÚ¼¸¸öÄ£¿é£¬±ÈÈçTWL4030_MODULE_PM_MASTER
+ *          ¸ù¾İÄ£¿éºÅÀ´Çø·ÖÊ¹ÓÃÄÄ¸ö´ÓÉè±¸µØÖ·£¬0x49 »¹ÊÇ0x4a
+ * @value: the value to be written 8 bit  ÒªĞ´µÄÊı¾İ
+ * @reg: register address (just offset will do)  ÒªĞ´µÄ¼Ä´æÆ÷µØÖ·
  *
- * Returns result of operation - 0 is success
+ * Returns result of operation - 0 is success  ·µ»Ø0±íÊ¾³É¹¦
  */
+ // Ğ´valueÖĞµÄÖµµ½Ä£¿émod_noµÄ¼Ä´æÆ÷regÖĞ£¬
 int twl_i2c_write_u8(u8 mod_no, u8 value, u8 reg)
 {
 
 	/* 2 bytes offset 1 contains the data offset 0 is used by i2c_write */
+	// ĞèÒªÊ¹ÓÃ2¸ö×Ö½ÚµÄbuf£¬µÚÒ»¸ö×Ö½ÚÔ¤Áô¸øĞèÒª²Ù×÷¼Ä´æÆ÷µÄµØÖ·
+	// µÚ¶ş¸ö×Ö½Ú¾ÍÊÇÒªµÄÊı¾İ
 	u8 temp_buffer[2] = { 0 };
 	/* offset 1 contains the data */
 	temp_buffer[1] = value;
+	// i2c²Ù×÷º¯Êı£¬ÕâÀï»¹ÊÇ·â×°¹ıµÄº¯Êı
 	return twl_i2c_write(mod_no, temp_buffer, reg, 1);
 }
 EXPORT_SYMBOL(twl_i2c_write_u8);
 
 /**
  * twl_i2c_read_u8 - Reads a 8 bit register from TWL4030/TWL5030/TWL60X0
- * @mod_no: module number
- * @value: the value read 8 bit
- * @reg: register address (just offset will do)
+ * ´Ótwl4030¶ÁÈ¡Ò»¸ö8bitµÄ¼Ä´æÆ÷
+ * @mod_no: module number  Ö¸¶¨µÄÍâÉèºÅ
+ * @value: the value read 8 bit   ¶ÁÈ¡8bit
+ * @reg: register address (just offset will do)  ¼Ä´æÆ÷µØÖ·Æ«ÒÆ
  *
  * Returns result of operation - 0 is success
  */
+ // ¶ÁÈ¡Ä£¿émod_noµÄ¼Ä´æÆ÷regµÄÖµµ½value±äÁ¿ÖĞ£¬
 int twl_i2c_read_u8(u8 mod_no, u8 *value, u8 reg)
 {
+	// ¶ÁÈ¡Ä£¿émod_noµÄ¼Ä´æÆ÷regµÄÖµµ½value±äÁ¿ÖĞ£¬¶ÁÈ¡µÄÊı¾İ¸öÊıÊÇ1¸ö×Ö½Ú
 	return twl_i2c_read(mod_no, value, reg, 1);
 }
 EXPORT_SYMBOL(twl_i2c_read_u8);
@@ -492,13 +521,13 @@ EXPORT_SYMBOL(twl_i2c_read_u8);
 
 /**
  * twl_read_idcode_register - API to read the IDCODE register.
- *
+ * twl4030¶ÁÈ¡idcode¼Ä´æÆ÷£¬Ö±½Ó²Ù×÷idcode¼Ä´æÆ÷
  * Unlocks the IDCODE register and read the 32 bit value.
  */
 static int twl_read_idcode_register(void)
 {
 	int err;
-
+    // Ğ´INTBRÄ£¿éµÄ¼Ä´æÆ÷REG_UNLOCK_TEST_REG£¬Êı¾İÎªTWL_EEPROM_R_UNLOCK
 	err = twl_i2c_write_u8(TWL4030_MODULE_INTBR, TWL_EEPROM_R_UNLOCK,
 						REG_UNLOCK_TEST_REG);
 	if (err) {

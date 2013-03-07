@@ -2,7 +2,7 @@
  * linux/drivers/i2c/chips/twl4030-power.c
  *
  * Handle TWL4030 Power initialization
- *
+ * twl4030电源初始化
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2006 Texas Instruments, Inc
  *
@@ -33,7 +33,9 @@
 
 #include <plat/smartreflex.h>
 
+// 启动脚本的地址
 static u8 twl4030_start_script_address = 0x2b;
+
 
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF	(1<<0)
@@ -77,7 +79,7 @@ static u8 twl4030_start_script_address = 0x2b;
 #define R_WDT_CFG		0x03
 #define WDT_WRK_TIMEOUT		0x03
 
-/* resource configuration registers
+/* resource configuration registers 资源配置寄存器
    <RESOURCE>_DEV_GRP   at address 'n+0'
    <RESOURCE>_TYPE      at address 'n+1'
    <RESOURCE>_REMAP     at address 'n+2'
@@ -89,6 +91,7 @@ static u8 twl4030_start_script_address = 0x2b;
 #define DEDICATED_OFFSET	3
 
 /* Bit positions in the registers */
+// 寄存器中的位
 
 /* <RESOURCE>_DEV_GRP */
 #define DEV_GRP_SHIFT		5
@@ -106,8 +109,9 @@ static u8 twl4030_start_script_address = 0x2b;
 #define OFF_STATE_SHIFT		4
 #define OFF_STATE_MASK		(0xf << OFF_STATE_SHIFT)
 
+// 寄存器地址
 static u8 res_config_addrs[] = {
-	[RES_VAUX1]	= 0x17,
+	[RES_VAUX1]	= 0x17,  // 该电源对应的寄存器地址
 	[RES_VAUX2]	= 0x1b,
 	[RES_VAUX3]	= 0x1f,
 	[RES_VAUX4]	= 0x23,
@@ -686,6 +690,7 @@ static int twl4030_omap3evm_init(void)
 	return err;
 }
 
+// 电源初始化
 int twl4030_power_init(struct twl4030_power_data *twl4030_scripts)
 {
 	int err = 0;

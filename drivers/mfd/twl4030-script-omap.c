@@ -17,7 +17,7 @@
 
 #include <linux/i2c/twl.h>
 
-/*
+/* 电源管理信号 在omap3430和twl5030的连接图
  * power management signal connections for OMAP3430 with TWL5030
  *
  *                          TWL5030                             OMAP3430
@@ -44,7 +44,7 @@
  * SYS_OFFMODE - OMAP drives this signal low only when the OMAP is in the
  *	OFF idle mode. It is driven high when a wake up event is detected.
  *	This signal should control the P1 device group in the PMIC.
- *
+ *  驱动为低omap在off的情况下，驱动为高，则为唤醒时间
  * SYS_CLKREQ - OMAP should drive this signal low when the OMAP goes into
  *	any idle mode. This signal should control the P3 device group
  *	in the PMIC. It is used to notify PMIC when XTALIN is no longer needed.
@@ -52,16 +52,16 @@
  * NSLEEP1(P1) - When this signal goes low the P1 sleep sequence is executed
  *	in the PMIC turning off certain resources. When this signal goes high
  *	the P1 active sequence is executed turning back on certain resources.
- *
+ * 当这个信号为低电平，则会执行P1的sleep序列，为高则唤醒。
  * NSLEEP2(P2) - This signal controls the P2 device group of the PMIC.
  *	It is not used in this setup and should be tied to ground.
  *	This can be used for connecting a different processor or MODEM chip.
- *
+ * 当这个信号为低电平，则会执行P2设备组的sleep序列，为高则唤醒。
  * CLKREQ(P3) - When this signal goes low the P3 sleep sequence is executed
  *	in the PMIC turning off HFCLKOUT. When this signal goes high
  *	the P3 active sequence is executed turning back on HFCLKOUT and other
  *	resources.
- *
+ *  CLKREQ当这个信号为低电平，则会执行P3的sleep序列，为高则唤醒。
  * CLKEN - Enable signal for oscillator. Should only go low when OMAP is
  *	in the OFF idle mode due to long oscillator startup times.
  *
@@ -212,7 +212,7 @@ static struct twl4030_script sleep_on_script __initdata = {
  * Sequence to reset the TWL4030 Power resources,
  * when the system gets warm reset.
  * Executed upon warm reset signal.
- *
+ * 复位twl4030电源资源的序列，在system 热复位的时候
  * First the device is put in reset, then the system clock is requested to
  * the external oscillator, and default ON power reference and power providers
  * are enabled. Next some additional resources which are software controlled

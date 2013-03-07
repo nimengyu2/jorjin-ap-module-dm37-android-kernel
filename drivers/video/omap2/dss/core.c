@@ -707,7 +707,7 @@ static int omap_dss_resume(struct platform_device *pdev)
 
 	return dss_resume_all_devices();
 }
-
+// 注意omapdss，针对dm3730使用的是该文件
 static struct platform_driver omap_dss_driver = {
 	.probe          = omap_dss_probe,
 	.remove         = omap_dss_remove,

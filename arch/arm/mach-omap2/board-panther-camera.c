@@ -101,64 +101,66 @@ static int panther_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 	return 0;
 }
 #endif
-#ifdef CONFIG_VIDEO_OV5640
-#define POWER_DOWN_GPIO 167
+#ifdef CONFIG_VIDEO_OV5640   // 如果配置了ov5640这个摄像头模组
+#define POWER_DOWN_GPIO 167   // power down的gpio口
+// 设定ov5640的电源
 static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
 	if (!panther_cam_digital || !panther_cam_io) {
-		dev_err(isp->dev, "No regulator available\n");
+		dev_err(isp->dev, "No regulator available\n"); // 判断是否有调整期
 		return -ENODEV;
 	}
 	if (on) {
-		/* Check Voltage-Levels */
+		/* Check Voltage-Levels */  // 检测电压等级
 		if (regulator_get_voltage(panther_cam_digital) != 1500000)
-			regulator_set_voltage(panther_cam_digital, 1500000, 1500000);
+			regulator_set_voltage(panther_cam_digital, 1500000, 1500000);  // 设定cam数据接口电压
 		if (regulator_get_voltage(panther_cam_io) != 1800000)
-			regulator_set_voltage(panther_cam_io, 1800000, 1800000);
-		/* Request POWER_DOWN_GPIO and set to output */
+			regulator_set_voltage(panther_cam_io, 1800000, 1800000); // 设定摄像头io电平1.8
+		/* Request POWER_DOWN_GPIO and set to output */  // 请求gpio口
 		gpio_request(POWER_DOWN_GPIO, "CAM_PWRDN");
-		gpio_direction_output(POWER_DOWN_GPIO, true);
+		gpio_direction_output(POWER_DOWN_GPIO, true);// 设定为输出
 		/*
 		 * Power Up Sequence
 		 */
-		/* Set POWER_DOWN to 1 */
+		 // 上电时序
+		/* Set POWER_DOWN to 1 */   // 掉电
 		gpio_set_value(POWER_DOWN_GPIO, 1);
-		/* Set RESET_BAR to 0 */
+		/* Set RESET_BAR to 0 */  // 复位引脚为低
 		gpio_set_value(LEOPARD_RESET_GPIO, 0);
-		/* Turn on VDD */
+		/* Turn on VDD */ // 开启cam io电压
 		regulator_enable(panther_cam_io);
-		mdelay(1);
-		regulator_enable(panther_cam_digital);
+		mdelay(1);// 延时
+		regulator_enable(panther_cam_digital);  // 开启camera数字电
 
 		mdelay(50);
-		/* Enable EXTCLK */
-		if (isp->platform_cb.set_xclk)
+		/* Enable EXTCLK */  // 使能extclk
+		if (isp->platform_cb.set_xclk)  // 一般是24mhz
 			isp->platform_cb.set_xclk(isp, 24000000, CAM_USE_XCLKA);
 		/*
 		 * Wait at least 70 CLK cycles (w/EXTCLK = 24MHz):
 		 * ((1000000 * 70) / 24000000) = aprox 3 us.
-		 */
+		 */  // 至少需要延时70clk
 		udelay(3);
-		/* Set RESET_BAR to 1 */
+		/* Set RESET_BAR to 1 */   // 复位信号为高
 		gpio_set_value(LEOPARD_RESET_GPIO, 1);
-		/* Set POWER_DOWN to 0 */
+		/* Set POWER_DOWN to 0 */  // 上电
 		gpio_set_value(POWER_DOWN_GPIO, 0);
 		/*
 		 * Wait at least 100 CLK cycles (w/EXTCLK = 24MHz):
 		 * ((1000000 * 100) / 24000000) = aprox 5 us.
-		 */
+		 */  // 至少100clk
 		udelay(5);
 	} else {
 		/*
 		 * Power Down Sequence
-		 */
+		 */   // 掉电顺序
 		if (regulator_is_enabled(panther_cam_digital))
 			regulator_disable(panther_cam_digital);
 		if (regulator_is_enabled(panther_cam_io))
 			regulator_disable(panther_cam_io);
-
+		// 设定时钟
 		if (isp->platform_cb.set_xclk)
 			isp->platform_cb.set_xclk(isp, 0, CAM_USE_XCLKA);
 	}
@@ -167,26 +169,27 @@ static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 }
 #endif
 #ifdef CONFIG_VIDEO_MT9T111
+// 如果定义了mt9t111这个摄像头模组
 static int panther_mt9t111_s_power(struct v4l2_subdev *subdev, int on)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
 	if (!panther_cam_digital || !panther_cam_io) {
-		dev_err(isp->dev, "No regulator available\n");
+		dev_err(isp->dev, "No regulator available\n");  // 是否有调整器
 		return -ENODEV;
 	}
 	if (on) {
-		/* Check Voltage-Levels */
+		/* Check Voltage-Levels */  // 检查电压
 		if (regulator_get_voltage(panther_cam_digital) != 1800000)
 			regulator_set_voltage(panther_cam_digital, 1800000, 1800000);
 		if (regulator_get_voltage(panther_cam_io) != 1800000)
 			regulator_set_voltage(panther_cam_io, 1800000, 1800000);
 		/*
 		 * Power Up Sequence
-		 */
+		 */  // 上电顺序
 		/* Set RESET_BAR to 0 */
 		gpio_set_value(LEOPARD_RESET_GPIO, 0);
-		/* Turn on VDD */
+		/* Turn on VDD */  // 开启电源
 		regulator_enable(panther_cam_digital);
 		mdelay(1);
 		regulator_enable(panther_cam_io);
@@ -225,6 +228,7 @@ static int panther_mt9t111_s_power(struct v4l2_subdev *subdev, int on)
 #endif
 
 #ifdef CONFIG_VIDEO_MT9V113
+// 如果定义了mt9v113
 static int panther_mt9v113_configure_interface(struct v4l2_subdev *subdev,
 					      u32 pixclk)
 {
@@ -237,13 +241,15 @@ static int panther_mt9v113_configure_interface(struct v4l2_subdev *subdev,
 }
 #endif
 #ifdef CONFIG_VIDEO_OV5640
+// 如果定义了ov5640模组
+// 配置接口
 static int panther_ov5640_configure_interface(struct v4l2_subdev *subdev,
 					      u32 pixclk)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
 
 	if (isp->platform_cb.set_pixel_clock)
-		isp->platform_cb.set_pixel_clock(isp, pixclk);
+		isp->platform_cb.set_pixel_clock(isp, pixclk);  // 设定像素时钟
 
 	return 0;
 }
@@ -261,7 +267,7 @@ static int panther_mt9t111_configure_interface(struct v4l2_subdev *subdev,
 }
 #endif
 
-#ifdef CONFIG_VIDEO_MT9V113
+#ifdef CONFIG_VIDEO_MT9V113  // 不同摄像头的接口函数结构体
 static struct mt9v113_platform_data panther_mt9v113_platform_data = {
 	.s_power		= panther_mt9v113_s_power,
 	.configure_interface	= panther_mt9v113_configure_interface,
@@ -286,8 +292,9 @@ static struct mt9t111_platform_data panther_mt9t111_platform_data = {
 };
 #endif
 
-#define CAMERA_I2C_BUS_NUM		2
+#define CAMERA_I2C_BUS_NUM		2   // 使用iic2
 
+// iic设备
 #ifdef CONFIG_VIDEO_MT9V113
 static struct i2c_board_info panther_mt9v113_i2c_devices[] = {
 	{
@@ -341,6 +348,7 @@ static struct isp_subdev_i2c_board_info panther_mt9t111_primary_subdevs[] = {
 };
 #endif
 
+// 摄像头子系统
 static struct isp_v4l2_subdevs_group panther_camera_subdevs[] = {
 #ifdef CONFIG_VIDEO_MT9V113
 	{
@@ -396,12 +404,13 @@ static struct isp_v4l2_subdevs_group panther_camera_subdevs[] = {
 static struct isp_platform_data panther_isp_platform_data = {
 	.subdevs = panther_camera_subdevs,
 };
-
+// 摄像头初始化
 static int __init panther_cam_init(void)
 {
 	/*
 	 * Regulator supply required for camera interface
 	 */
+	 // 调整器提供摄像头接口
 	panther_cam_digital = regulator_get(NULL, "cam_digital");
 	if (IS_ERR(panther_cam_digital)) {
 		printk(KERN_ERR "cam_digital regulator missing\n");
@@ -416,6 +425,7 @@ static int __init panther_cam_init(void)
 	/*
 	 * Sensor reset GPIO
 	 */
+	 // 传感器复位gpio口
 	if (gpio_request(LEOPARD_RESET_GPIO, "cam_rst") != 0) {
 		printk(KERN_ERR "panther-cam: Could not request GPIO %d\n",
 				LEOPARD_RESET_GPIO);
@@ -424,13 +434,16 @@ static int __init panther_cam_init(void)
 		return -ENODEV;
 	}
 	/* set to output mode */
+	// 设定输出模式
 	gpio_direction_output(LEOPARD_RESET_GPIO, 0);
 
+	// 初始化摄像头
 	omap3_init_camera(&panther_isp_platform_data);
 
 	return 0;
 }
 
+// 摄像头退出
 static void __exit panther_cam_exit(void)
 {
 	if (regulator_is_enabled(panther_cam_digital))

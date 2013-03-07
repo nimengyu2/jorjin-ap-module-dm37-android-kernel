@@ -12,7 +12,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
+// 注意该文件是给ap module使用的
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
@@ -32,7 +32,7 @@
 
 #include <linux/usb/android_composite.h>
 
-#ifdef CONFIG_TOUCHSCREEN_ADS7846
+#ifdef CONFIG_TOUCHSCREEN_ADS7846   // 如果定义了ads7846这颗触摸屏芯片
 #include <linux/spi/ads7846.h>
 #endif
 
@@ -52,7 +52,7 @@
 #include <plat/nand.h>
 #include <plat/usb.h>
 
-#ifdef CONFIG_WL12XX_PLATFORM_DATA
+#ifdef CONFIG_WL12XX_PLATFORM_DATA  // wl12xx平台的wifi模块
 #include <linux/wl12xx.h>
 #include <linux/regulator/fixed.h>
 #endif
@@ -67,13 +67,13 @@
 #include "board-flash.h"
 #include "pm34xx.h"
 
-#define NAND_BLOCK_SIZE		SZ_128K
+#define NAND_BLOCK_SIZE		SZ_128K   // nand的块大小
 
 #ifdef CONFIG_USB_ANDROID
 
-#define GOOGLE_VENDOR_ID		0x18d1
-#define GOOGLE_PRODUCT_ID		0x9018
-#define GOOGLE_ADB_PRODUCT_ID		0x9015
+#define GOOGLE_VENDOR_ID		0x18d1   // 厂家ID
+#define GOOGLE_PRODUCT_ID		0x9018   // 产品ID
+#define GOOGLE_ADB_PRODUCT_ID		0x9015  // adb 产品ID
 
 static char *usb_functions_adb[] = {
 	"adb",
@@ -91,16 +91,17 @@ static char *usb_functions_all[] = {
 	"adb", "usb_mass_storage",
 };
 
+// usb产品
 static struct android_usb_product usb_products[] = {
 	{
-		.product_id	= GOOGLE_PRODUCT_ID,
+		.product_id	= GOOGLE_PRODUCT_ID,  // google 产品 id
 		.num_functions	= ARRAY_SIZE(usb_functions_adb),
-		.functions	= usb_functions_adb,
+		.functions	= usb_functions_adb,  // adb 功能
 	},
 	{
 		.product_id	= GOOGLE_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_mass_storage),
-		.functions	= usb_functions_mass_storage,
+		.functions	= usb_functions_mass_storage,  // 大容量存储器
 	},
 	{
 		.product_id	= GOOGLE_PRODUCT_ID,
@@ -109,13 +110,14 @@ static struct android_usb_product usb_products[] = {
 	},
 };
 
+// rowboat 大容量储存器 平台数据
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
 	.nluns		= 1,
 	.vendor		= "rowboat",
 	.product	= "rowboat gadget",
 	.release	= 0x100,
 };
-
+// rowboat 大容量储存器 设备
 static struct platform_device usb_mass_storage_device = {
 	.name	= "usb_mass_storage",
 	.id	= -1,
@@ -123,7 +125,7 @@ static struct platform_device usb_mass_storage_device = {
 		.platform_data = &mass_storage_pdata,
 	},
 };
-
+// rowboat usb 平台数据结构体
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= GOOGLE_VENDOR_ID,
 	.product_id	= GOOGLE_PRODUCT_ID,
@@ -137,6 +139,7 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.num_functions	= ARRAY_SIZE(usb_functions_all),
 };
 
+// android usb设备
 static struct platform_device androidusb_device = {
 	.name	= "android_usb",
 	.id	= -1,
@@ -145,6 +148,7 @@ static struct platform_device androidusb_device = {
 	},
 };
 
+// panther android 网卡
 static void panther_android_gadget_init(void)
 {
 	platform_device_register(&androidusb_device);
@@ -160,61 +164,67 @@ extern void omap_pm_auto_ret(int);
 /**
  *  * Board specific initialization of PM components
  *   */
+ // beagle 电源管理初始化
 static void __init omap3_beagle_pm_init(void)
 {
-    /* Use sys_offmode signal */
+    /* Use sys_offmode signal */  // 使用sys offmode信号
     omap_pm_sys_offmode_select(1);
 
-    /* sys_clkreq - active high */
+    /* sys_clkreq - active high */  // sys_clkreq 高有效 
     omap_pm_sys_clkreq_pol(1);
 
-    /* sys_offmode - active low */
+    /* sys_offmode - active low */   // sys_offmode  低有效
     omap_pm_sys_offmode_pol(0);
 
-    /* Automatically send OFF command */
+    /* Automatically send OFF command */  // 自动发送off命令
     omap_pm_auto_off(1);
 
-    /* Automatically send RET command */
+    /* Automatically send RET command */  // 自动发送ret命令
     omap_pm_auto_ret(1);
 
     /*initialize sleep relational register for PM components*/
+	// 初始化休眠相关寄存器，针对pm设备
     omap3_pm_prm_polctrl_set(1,0);
     omap3_pm_prm_voltctrl_set(1,1,1);
 }
 
 
-
+// 如果定义了ads7846触摸屏芯片，用于电阻屏
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 
-#define PANTHER_TS_GPIO       157
+#define PANTHER_TS_GPIO       157  // 中断io口
 
 #include <plat/mcspi.h>
 #include <linux/spi/spi.h>
 
+// mcspi配置  配置为主机
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
         .turbo_mode     = 0,
         .single_channel = 1,    /* 0: slave, 1: master */
 };
-
+// 获取按下状态
 static int ads7846_get_pendown_state(void)
 {
-        return !gpio_get_value(PANTHER_TS_GPIO);
+		// 因为根据gpio口状态，非零表示没有按下状态，零表示按下状态
+        return !gpio_get_value(PANTHER_TS_GPIO);  // 如果按下返回非零，没有按下返回0
 }
 
+// ads7846配置信息
 struct ads7846_platform_data ads7846_config = {
-        .x_max                  = 0x0fff,
-        .y_max                  = 0x0fff,
-        .x_plate_ohms           = 180,
-        .pressure_max           = 255,
-        .debounce_max           = 10,
+        .x_max                  = 0x0fff,  // x轴最大的ad值  12bit
+        .y_max                  = 0x0fff,  // 最大 12bit
+        .x_plate_ohms           = 180,  // 电阻值
+        .pressure_max           = 255,  // 压力最大值
+        .debounce_max           = 10,  
         .debounce_tol           = 3,
         .debounce_rep           = 1,
-        .get_pendown_state      = ads7846_get_pendown_state,
+        .get_pendown_state      = ads7846_get_pendown_state,  // 获取按下状态
         .keep_vref_on           = 1,
-        .settle_delay_usecs     = 150,
-        .wakeup                         = true,
+        .settle_delay_usecs     = 150,    // 设定延时时间
+        .wakeup                         = true,  // 唤醒
 };
 
+// mcspi4引脚的初始化
 static void __init panther_config_mcspi4_mux(void)
 {
         omap_mux_init_signal("mcbsp1_clkr.mcspi4_clk", OMAP_PIN_INPUT);
@@ -222,65 +232,69 @@ static void __init panther_config_mcspi4_mux(void)
         omap_mux_init_signal("mcbsp1_dx.mcspi4_simo", OMAP_PIN_OUTPUT);
         omap_mux_init_signal("mcbsp1_dr.mcspi4_somi", OMAP_PIN_INPUT_PULLUP);
 }
-
+// spi接口信息结构体
 struct spi_board_info panther_spi_board_info[] = {
         [0] = {
                 .modalias               = "ads7846",
-                .bus_num                = 4,
-                .chip_select            = 0,
-                .max_speed_hz           = 1500000,
+                .bus_num                = 4,  // 总线4上
+                .chip_select            = 0,  // 片选0上
+                .max_speed_hz           = 1500000,  // 最大速度
                 .controller_data        = &ads7846_mcspi_config,
-                .irq                    = OMAP_GPIO_IRQ(PANTHER_TS_GPIO),
+                .irq                    = OMAP_GPIO_IRQ(PANTHER_TS_GPIO),// io中断
                 .platform_data          = &ads7846_config,
         },
 };
-
+// ads7846设备初始化
 static void ads7846_dev_init(void)
 {
 	printk("Initialize ads7846 touch screen controller\n");
-
+	// 请求gpio口中断
 	if (gpio_request(PANTHER_TS_GPIO, "ADS7846 pendown") < 0)
 		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
-
+	// 设定gpio口为输入
 	gpio_direction_input(PANTHER_TS_GPIO);
-	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);
+	gpio_set_debounce(PANTHER_TS_GPIO, 0xa);  // 设定反跳
 }
 #endif
 
+// nand分区
 static struct mtd_partition panther_nand_partitions[] = {
 	/* All the partition sizes are listed in terms of NAND block size */
 	{
 		.name		= "X-Loader",
 		.offset		= 0,
-		.size		= 4 * NAND_BLOCK_SIZE,
-		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
+		.size		= 4 * NAND_BLOCK_SIZE,  // 512KB
+		.mask_flags	= MTD_WRITEABLE,	/* force read-only */  // 只读
 	},
 	{
 		.name		= "U-Boot",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x80000 */
-		.size		= 10 * NAND_BLOCK_SIZE,
+		.size		= 10 * NAND_BLOCK_SIZE,  // 1280KB
 		.mask_flags	= MTD_WRITEABLE,	/* force read-only */
 	},
 	{
-		.name		= "U-Boot Env",
+		.name		= "U-Boot Env",   
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x1c0000 */
-		.size		= 6 * NAND_BLOCK_SIZE,
+		.size		= 6 * NAND_BLOCK_SIZE,  // 768KB
 	},
 	{
 		.name		= "Kernel",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x280000 */
-		.size		= 40 * NAND_BLOCK_SIZE,
+		.size		= 40 * NAND_BLOCK_SIZE,  // 5MB
 	},
 	{
 		.name		= "File System",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x780000 */
-		.size		= MTDPART_SIZ_FULL,
+		.size		= MTDPART_SIZ_FULL,   // 剩余空间
 	},
 };
 
 /* DSS */
+// 显示器
 
-#ifdef CONFIG_PANEL_INNOLUX_AT070TN83
+// 注意，根据panther android配置中
+// CONFIG_PANEL_INNOLUX_AT070TN83=y 因此这里是选中的
+#ifdef CONFIG_PANEL_INNOLUX_AT070TN83   // 如果定义了at070tn83
 // Please note that although we have added blacklight adjustment function in our code, we actually do not have a PWM connected to Chipsee's panel.
 // This is just a model for further using. It will not change the backlight intensity.
 // Also, this funtion is related to Android's light module at "<ROWBOAT>/hardware/ti/omap3/liblights/pantherboard". Please modify that module too if necessary.
@@ -302,12 +316,13 @@ static int panther_set_bl_intensity(struct omap_dss_device *dssdev, int level)
 	return 0;
 }
 
+// 使能lcd
 static int panther_enable_lcd(struct omap_dss_device *dssdev)
 {
 #define TWL_GPBR1	0xc
 #define TWL_PWM0OFF	0x1
 #define TWL_PMBR1	0xd
-	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x04, TWL_PMBR1);	// set GPIO.6 to PWM0
+	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x04, TWL_PMBR1);	// set GPIO.6 to PWM0 设定为pwm功能
 	twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x05, TWL_GPBR1);	// enable PWM0 output & clock
 	twl_i2c_write_u8(TWL4030_MODULE_PWM0, 0x7F, TWL_PWM0OFF);
 
@@ -328,6 +343,7 @@ static void panther_disable_lcd(struct omap_dss_device *dssdev)
 	//gpio_direction_output(PANTHER_TS_GPIO, 1);
 }
 
+// 对应driver中的驱动 Panel-innolux-at070tn83.c文件
 static struct omap_dss_device panther_lcd_device = {
 	.name			= "lcd",
 	.driver_name		= "innolux_at_panel",
@@ -373,18 +389,21 @@ static struct omap_dss_device panther_tv_device = {
 
 static struct omap_dss_device *panther_dss_devices[] = {
 #ifdef CONFIG_PANEL_INNOLUX_AT070TN83
-	&panther_lcd_device,
+	&panther_lcd_device,   // lcd设备
 #endif
 	&panther_dvi_device,
 	&panther_tv_device,
 };
 
+// panther dss设备结构体
 static struct omap_dss_board_info panther_dss_data = {
-	.num_devices = ARRAY_SIZE(panther_dss_devices),
-	.devices = panther_dss_devices,
-	.default_device = &panther_dvi_device,
+	.num_devices = ARRAY_SIZE(panther_dss_devices),  // dss设备个数
+	.devices = panther_dss_devices,  // dss设备结构体
+	.default_device = &panther_dvi_device,  // 默认设备
 };
 
+// omapdss设备
+// Core.c (drivers\video\omap2\dss):
 static struct platform_device panther_dss_device = {
 	.name          = "omapdss",
 	.id            = -1,
@@ -399,12 +418,14 @@ static struct regulator_consumer_supply panther_vdac_supply =
 static struct regulator_consumer_supply panther_vdvi_supply =
 	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
 
+// 显示器初始化
 static void __init panther_display_init(void)
 {
 	int r;
 
 	/* DVI */
 	panther_dvi_device.reset_gpio = 129;
+	// 设定为reset引脚为输入功能
 	omap_mux_init_gpio(panther_dvi_device.reset_gpio, OMAP_PIN_INPUT);
 
 	r = gpio_request(panther_dvi_device.reset_gpio, "DVI reset");
@@ -412,7 +433,7 @@ static void __init panther_display_init(void)
 		printk(KERN_ERR "Unable to get DVI reset GPIO\n");
 		return;
 	}
-
+	// 然后设定为输出
 	gpio_direction_output(panther_dvi_device.reset_gpio, 0);
 }
 
@@ -420,14 +441,14 @@ static void __init panther_display_init(void)
 
 static struct omap2_hsmmc_info mmc[] = {
 	{
-		.mmc		= 1,
-		.caps		= MMC_CAP_4_BIT_DATA,
+		.mmc		= 1,   // mmc序号
+		.caps		= MMC_CAP_4_BIT_DATA,  // 4bit
 		.gpio_wp	= -EINVAL,
 	},
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	{
 	.name           = "wl1271",
-	.mmc            = 2,
+	.mmc            = 2,   // mmc序号
 	.caps           = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 	.gpio_wp        = -EINVAL,
 	.gpio_cd        = -EINVAL,
@@ -458,6 +479,7 @@ int plat_kim_resume(struct platform_device *pdev)
 	return 0;
 }
 
+// wilink平台数据  TI的芯片，带BT FM GPS功能
 /* TI BT, FM, GPS connectivity chip */
 struct ti_st_plat_data wilink_pdata = {
 	.nshutdown_gpio = PANTHER_BTEN_GPIO,
@@ -538,12 +560,13 @@ static struct regulator_consumer_supply panther_vaux4_supply = {
 
 static struct gpio_led gpio_leds[];
 
+// twl的gpio建立
 static int panther_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
 	/* gpio + 0 is "mmc0_cd" (input/IRQ) */
-	mmc[0].gpio_cd = gpio + 0;
-	omap2_hsmmc_init(mmc);
+	mmc[0].gpio_cd = gpio + 0;   
+	omap2_hsmmc_init(mmc);  // 初始化hsmmc
 
 	/* link regulators to MMC adapters */
 	panther_vmmc1_supply.dev = mmc[0].dev;
@@ -551,6 +574,7 @@ static int panther_twl_gpio_setup(struct device *dev,
 	//panther_vsim_supply.dev = mmc[0].dev;
 
 	/* TWL4030_GPIO_MAX + 0 == ledA, EHCI nEN_USB_PWR (out, active low) */
+	// 请求gpio接口
 	gpio_request(gpio + TWL4030_GPIO_MAX, "nEN_USB_PWR");
 	gpio_direction_output(gpio + TWL4030_GPIO_MAX, 1);
 
@@ -772,10 +796,11 @@ static struct twl4030_script __initdata *board_twl4030_scripts[] = {
     &panther_wrst_script
 };
 
+// pather board 脚本数据结构体
 static struct twl4030_power_data __initdata panther_script_data = {
     .scripts        = board_twl4030_scripts,
     .num            = ARRAY_SIZE(board_twl4030_scripts),
-    .resource_config    = board_twl4030_rconfig,
+    .resource_config    = board_twl4030_rconfig,  // 资源配置
 };
 
 static struct twl4030_codec_audio_data panther_audio_data = {
@@ -829,6 +854,7 @@ static struct twl4030_platform_data panther_twldata = {
     .power      = &panther_script_data,
 };
 
+// i2c上挂载的设备  tps65950芯片
 static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
@@ -838,59 +864,71 @@ static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
 	},
 };
 
+// 挂载了eeprom芯片
 static struct i2c_board_info __initdata panther_i2c_eeprom[] = {
        {
                I2C_BOARD_INFO("eeprom", 0x50),
        },
 };
 
+// 初始化i2c接口
 static int __init panther_i2c_init(void)
 {
+	// iic1 初始化  挂在panther板子设备
 	omap_register_i2c_bus(1, 2600, panther_i2c_boardinfo,
 			ARRAY_SIZE(panther_i2c_boardinfo));
 
 	/* Bus 2 is used for Camera/Sensor interface */
+	// 用于camera接口和传感器接口
 	omap_register_i2c_bus(2, 400, NULL, 0);
 
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
+	 // 总线3 用于连接dvi接口，因为该工作在400khz的时候不稳定，因此设定为100khz
 	omap_register_i2c_bus(3, 100, panther_i2c_eeprom, ARRAY_SIZE(panther_i2c_eeprom));
 
 	return 0;
 }
 
+// gpio led接口
 static struct gpio_led gpio_leds[] = {
 // Pantherboard's leds aren't driven by GPIOs (except for D701(USB Active)).
+// pantherboard的led没有使用gpio驱动
 };
 
 static struct gpio_led_platform_data gpio_led_info = {
-	.leds		= gpio_leds,
-	.num_leds	= ARRAY_SIZE(gpio_leds),
+	.leds		= gpio_leds,  // led结构体
+	.num_leds	= ARRAY_SIZE(gpio_leds), // led个数
 };
 
+// led的gpio设备
 static struct platform_device leds_gpio = {
 	.name	= "leds-gpio",
 	.id	= -1,
 	.dev	= {
-		.platform_data	= &gpio_led_info,
+		.platform_data	= &gpio_led_info,  // gpio的led信息
 	},
 };
 
+// gpio的按键
 static struct gpio_keys_button gpio_buttons[] = {
+// 根据chipsee的扩展版
 // Jack_20110907: defined the buttons on Chipsee's expansion board
 //	To see the definitions of SCANCODE and KEYCODE, please refer to
 //		-- <ROWBOAT_ANDROID>/kernel/include/linux/input.h
 //		-- <ROWBOAT_ANDROID>/sdk/emulators/keymaps/qwerty.kl
+// 如果需要查看定义，则参考如上的文件
+// 是由ads7846来驱动的
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	{
-		.code			= KEY_MENU,
+		.code			= KEY_MENU, // 菜单键
 		.gpio			= 137,
 		.desc			= "s1",
 		.active_low		= true,
 		.wakeup			= 1,
 	},
 	{
-		.code			= KEY_BACK,
+		.code			= KEY_BACK,  // 返回键
 		.gpio			= 138,
 		.desc			= "s2",
 		.active_low		= true,
@@ -899,11 +937,12 @@ static struct gpio_keys_button gpio_buttons[] = {
 #endif
 };
 
+// gpio的按键信息
 static struct gpio_keys_platform_data gpio_key_info = {
-	.buttons	= gpio_buttons,
-	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.buttons	= gpio_buttons,   // 按键结构体
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),  // 按键数量
 };
-
+// 使用的驱动是gpio-keys
 static struct platform_device keys_gpio = {
 	.name	= "gpio-keys",
 	.id	= -1,
@@ -911,30 +950,35 @@ static struct platform_device keys_gpio = {
 		.platform_data	= &gpio_key_info,
 	},
 };
-
+// 初始化中断
 static void __init panther_init_irq(void)
 {
 	omap2_init_common_infrastructure();
+	// 初始化common设备  sdrc参数
 	omap2_init_common_devices(mt46h32m32lf6_sdrc_params,
 				  mt46h32m32lf6_sdrc_params);
+	// 初始化中断
 	omap_init_irq();
+	// gpmc初始化
 	gpmc_init();
 #ifdef CONFIG_OMAP_32K_TIMER
+    // 设定clock事件 设定定时器
 	omap2_gp_clockevent_set_gptimer(1);
 #endif
 }
 
+// panther设备列表 供平台注册
 static struct platform_device *panther_devices[] __initdata = {
-	&leds_gpio,
-	&keys_gpio,
-	&panther_dss_device,
-	&usb_mass_storage_device,
+	&leds_gpio,  // led gpio驱动
+	&keys_gpio,  // key gpio驱动
+	&panther_dss_device,  // dss显示设备
+	&usb_mass_storage_device,  // usb大容量存储器
 #ifdef CONFIG_TI_ST
-    &wl12xx_device,
-    &btwilink_device,
+    &wl12xx_device,  // wifi模块设备
+    &btwilink_device,  // bt设备
 #endif
 };
-
+// flash初始化
 static void __init panther_flash_init(void)
 {
 	u8 cs = 0;
@@ -967,6 +1011,7 @@ static void __init panther_flash_init(void)
 	}
 }
 
+// usb接口初始化
 static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.port_mode[0] = EHCI_HCD_OMAP_MODE_UNKNOWN,
@@ -1061,44 +1106,65 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
+// panter初始化
 static void __init panther_init(void)
 {
-	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);
+	// 初始化cbp封装引脚
+	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);  // ap module使用cbp封装
+	// 初始化iic
 	panther_i2c_init();
+	// 注册平台化设备，根据panther设备
 	platform_add_devices(panther_devices,
 			ARRAY_SIZE(panther_devices));
+	// 串口初始化
 	omap_serial_init();
 
+	// 主usb初始化
 	usb_musb_init(&musb_board_data);
+	// usb ehci初始化
 	usb_ehci_init(&ehci_pdata);
+	// flash初始化
 	panther_flash_init();
+	// 如果定义了ads7846这颗触摸屏芯片
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
+	// 引脚mux初始化
 	panther_config_mcspi4_mux();
+	// 中断gpio口
 	panther_spi_board_info[0].irq = gpio_to_irq(PANTHER_TS_GPIO);
+	// 注册spi接口的芯片驱动
 	spi_register_board_info(panther_spi_board_info, ARRAY_SIZE(panther_spi_board_info));
+	// 初始化该设备
 	ads7846_dev_init();
 #endif
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
+	// 确保sdrc引脚是mux作为自刷新模式
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
+	// panther显示初始化
 	panther_display_init();
 #ifdef CONFIG_USB_ANDROID
+	// 初始化android的usb
 	panther_android_gadget_init();
 #endif
 
+	// 初始化wl12xx平台数据
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 	/* WL12xx WLAN Init */
+	// wl12xx wifi初始化，这里是设定平台数据
 	if (wl12xx_set_platform_data(&panther_wlan_data))
 		pr_err("error setting wl12xx data\n");
+	// 注册wlan 调整器
 	platform_device_register(&panther_wlan_regulator);
 #endif
 
 #ifdef CONFIG_TI_ST
     /* Config GPIO to output for BT */
+	// 配置gpio输出 用于bt
 	omap_mux_init_gpio(PANTHER_BTEN_GPIO, OMAP_PIN_OUTPUT);
 #endif
+	// beagle的电源管理初始化
     omap3_beagle_pm_init();
 }
 

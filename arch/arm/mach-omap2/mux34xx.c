@@ -2025,14 +2025,14 @@ static struct omap_ball __initdata omap36xx_cbp_ball[] = {
 #else
 #define omap36xx_cbp_ball	 NULL
 #endif
-
+// omap3 初始化mux引脚
 int __init omap3_mux_init(struct omap_board_mux *board_subset, int flags)
 {
 	struct omap_mux *package_subset;
 	struct omap_ball *package_balls;
 
 	switch (flags & OMAP_PACKAGE_MASK) {
-	case OMAP_PACKAGE_CBC:
+	case OMAP_PACKAGE_CBC:  // cbc封装
 		package_subset = omap3_cbc_subset;
 		package_balls = omap3_cbc_ball;
 		break;

@@ -39,18 +39,18 @@
  * address each module uses within a given i2c slave.
  */
 
-/* Slave 0 (i2c address 0x48) */
-#define TWL4030_MODULE_USB		0x00
+/* Slave 0 (i2c address 0x48) 从机0地址*/
+#define TWL4030_MODULE_USB		0x00   // 从这些地址开始基于读取多少个字节的数据
 
-/* Slave 1 (i2c address 0x49) */
-#define TWL4030_MODULE_AUDIO_VOICE	0x01
+/* Slave 1 (i2c address 0x49) 从机1地址*/
+#define TWL4030_MODULE_AUDIO_VOICE	0x01  // 从这些地址开始基于读取多少个字节的数据
 #define TWL4030_MODULE_GPIO		0x02
-#define TWL4030_MODULE_INTBR		0x03
+#define TWL4030_MODULE_INTBR		0x03  
 #define TWL4030_MODULE_PIH		0x04
 #define TWL4030_MODULE_TEST		0x05
 
-/* Slave 2 (i2c address 0x4a) */
-#define TWL4030_MODULE_KEYPAD		0x06
+/* Slave 2 (i2c address 0x4a) 从机2地址*/
+#define TWL4030_MODULE_KEYPAD		0x06   // 从这些地址开始基于读取多少个字节的数据
 #define TWL4030_MODULE_MADC		0x07
 #define TWL4030_MODULE_INTERRUPTS	0x08
 #define TWL4030_MODULE_LED		0x09
@@ -61,16 +61,17 @@
 #define TWL4030_MODULE_PWMA		0x0E
 #define TWL4030_MODULE_PWMB		0x0F
 
-#define TWL5031_MODULE_ACCESSORY	0x10
+#define TWL5031_MODULE_ACCESSORY	0x10  // 从这些地址开始基于读取多少个字节的数据
 #define TWL5031_MODULE_INTERRUPTS	0x11
 
 /* Slave 3 (i2c address 0x4b) */
+// 从机3号，i2c的地址是0x4b
 #define TWL4030_MODULE_BACKUP		0x12
 #define TWL4030_MODULE_INT		0x13
 #define TWL4030_MODULE_PM_MASTER	0x14
 #define TWL4030_MODULE_PM_RECEIVER	0x15
 #define TWL4030_MODULE_RTC		0x16
-#define TWL4030_MODULE_SECURED_REG	0x17
+#define TWL4030_MODULE_SECURED_REG	0x17  // 最后一个模块
 
 #define TWL_MODULE_USB		TWL4030_MODULE_USB
 #define TWL_MODULE_AUDIO_VOICE	TWL4030_MODULE_AUDIO_VOICE
@@ -298,7 +299,7 @@ extern struct twl4030_power_data twl4030_generic_script;
 #define REG_IDCODE_16_23		0x02
 #define REG_IDCODE_31_24		0x03
 #define REG_GPPUPDCTR1			0x0F
-#define REG_UNLOCK_TEST_REG		0x12
+#define REG_UNLOCK_TEST_REG		0x12  // 相对TWL_4030_MODULE_INTBR的偏移为0x12
 
 /*I2C1 and I2C4(SR) SDA/SCL pull-up control bits */
 
@@ -460,17 +461,18 @@ extern struct twl4030_power_data twl4030_generic_script;
 /*
  * The TWL4030/5030 splits its power-management resources (the various
  * regulators, clock and reset lines) into 3 processor groups - P1, P2 and P3.
- *
+ * twl4030将他们的电源管理资源分成3个处理器组合，p1 p2 p3，包括不同的调整器
+ * 时钟和复位线
  * Resources attached to device group P1 is managed depending on the state of
  * NSLEEP1 pin of TWL4030, which is connected to sys_off signal from OMAP
- *
+ * 连接到设备组合p1上的资源根据nsleep1引脚的状态来管理
  * Resources attached to device group P2 is managed depending on the state of
  * NSLEEP2 pin of TWL4030, which is can be connected to a modem or
  * connectivity chip
- *
+ * 连接到设备组合p2上的资源根据nsleep2引脚的状态来管理
  * Resources attached to device group P3 is managed depending on the state of
  * CLKREQ pin of TWL4030, which is connected to clk request signal from OMAP
- *
+ * 连接到设备组合p3上的资源根据CLKREQ引脚的状态来管理
  * If required these resources can be attached to combination of P1/P2/P3.
  *
  * These groups can then be configured to transition between sleep, wait-on
@@ -479,23 +481,23 @@ extern struct twl4030_power_data twl4030_generic_script;
  */
 
 /* Processor groups */
-#define DEV_GRP_NULL		0x0
-#define DEV_GRP_P1		0x1	/* P1: all OMAP devices */
-#define DEV_GRP_P2		0x2	/* P2: all Modem devices */
-#define DEV_GRP_P3		0x4	/* P3: all peripheral devices */
-#define DEV_GRP_ALL		0x7	/* P1/P2/P3: all devices */
+#define DEV_GRP_NULL		0x0  // 没有设备
+#define DEV_GRP_P1		0x1	/* P1: all OMAP devices 所有omap设备*/
+#define DEV_GRP_P2		0x2	/* P2: all Modem devices 所有modem设备*/
+#define DEV_GRP_P3		0x4	/* P3: all peripheral devices 所有外设设备*/
+#define DEV_GRP_ALL		0x7	/* P1/P2/P3: all devices 所有的设备*/
 
 /*
  * The 27 power resources in TWL4030 is again divided into
  * analog resources:
- *	Power Providers - LDO regulators, dc-to-dc regulators
- *	Power Reference - analog reference
+ *	Power Providers - LDO regulators, dc-to-dc regulators 低压差稳压器，dcdc
+ *	Power Reference - analog reference 模拟参考源
  *
  * and digital resources:
- *	Reset & Clock - reset and clock signals.
+ *	Reset & Clock - reset and clock signals. 复位和时钟信号
  */
 /* Resource groups */
-#define RES_GRP_RES		0x0	/* Reserved */
+#define RES_GRP_RES		0x0	/* Reserved 保留*/
 #define RES_GRP_PP		0x1	/* Power providers */
 #define RES_GRP_RC		0x2	/* Reset and control */
 #define RES_GRP_PP_RC		0x3
@@ -511,7 +513,7 @@ extern struct twl4030_power_data twl4030_generic_script;
 #define RES_TYPE_R0		0x0
 #define RES_TYPE_ALL		0x7
 
-/* Resource states */
+/* Resource states 资源状态 */
 #define RES_STATE_WRST		0xF
 #define RES_STATE_ACTIVE	0xE
 #define RES_STATE_SLEEP		0x8
@@ -519,7 +521,8 @@ extern struct twl4030_power_data twl4030_generic_script;
 
 /* Power resources */
 
-/* Power providers */
+/* Power providers */  
+// 供电电源寄存器
 #define RES_VAUX1               1
 #define RES_VAUX2               2
 #define RES_VAUX3               3
@@ -541,14 +544,14 @@ extern struct twl4030_power_data twl4030_generic_script;
 #define RES_VUSB_3V1            19
 #define RES_VUSBCP              20
 #define RES_REGEN               21
-/* Reset and control */
+/* Reset and control 复位和控制*/ 
 #define RES_NRES_PWRON          22
 #define RES_CLKEN               23
 #define RES_SYSEN               24
 #define RES_HFCLKOUT            25
 #define RES_32KCLKOUT           26
 #define RES_RESET               27
-/* Power Reference */
+/* Power Reference 电源参考 */
 #define RES_MAIN_REF            28
 
 #define TOTAL_RESOURCES		28
@@ -557,11 +560,12 @@ extern struct twl4030_power_data twl4030_generic_script;
  * but are usually part of downloaded scripts that are run when various
  * power events are triggered.
  *
- *  Broadcast Message (16 Bits):
+ *  Broadcast Message (16 Bits): 广播消息
  *    DEV_GRP[15:13] MT[12]  RES_GRP[11:9]  RES_TYPE2[8:7] RES_TYPE[6:4]
+ *    设备组                 寄存器组       寄存器类型2    寄存器类型
  *    RES_STATE[3:0]
- *
- *  Singular Message (16 Bits):
+ *    寄存器状态
+ *  Singular Message (16 Bits): 突出的消息
  *    DEV_GRP[15:13] MT[12]  RES_ID[11:4]  RES_STATE[3:0]
  */
 
@@ -648,6 +652,7 @@ struct twl4030_ins {
 	u8 delay;
 };
 
+// 脚本结构体
 struct twl4030_script {
 	struct twl4030_ins *script;
 	unsigned size;
@@ -658,13 +663,17 @@ struct twl4030_script {
 #define TWL4030_SLEEP_SCRIPT	(1<<3)
 };
 
+// 寄存器配置
 struct twl4030_resconfig {
 	u8 resource;
+	// 电源资源所属的处理器组
 	u8 devgroup;	/* Processor group that Power resource belongs to */
+	// 电源资源地址，6/广播消息
 	u8 type;	/* Power resource addressed, 6 / broadcast message */
+	// 电源资源地址，3/广播消息
 	u8 type2;	/* Power resource addressed, 3 / broadcast message */
-	u8 remap_off;	/* off state remapping */
-	u8 remap_sleep;	/* sleep state remapping */
+	u8 remap_off;	/* off state remapping 重新映射的关闭状态*/
+	u8 remap_sleep;	/* sleep state remapping 重新映射的休眠状态*/
 };
 
 struct twl4030_power_data {
@@ -680,7 +689,7 @@ extern int twl4030_remove_script(u8 flags);
 extern void twl4030_power_sr_init(void);
 
 struct twl4030_codec_audio_data {
-	unsigned int audio_mclk; /* not used, will be removed */
+	unsigned int audio_mclk; /* not used, will be removed 没有使用*/
 	unsigned int digimic_delay; /* in ms */
 	unsigned int ramp_delay_value;
 	unsigned int offset_cncl_path;
