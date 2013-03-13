@@ -301,6 +301,33 @@ static struct clkdm_dep cam_wkdeps[] = {
 	{ NULL },
 };
 
+/* 3430: PM_WKDEP_USBHOST: CORE, IVA2, MPU, WKUP */  
+static struct clkdm_dep usbhost_wkdeps[] = {         
+	{                                                   
+		.clkdm_name = "core_l3_clkdm",                    
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)     
+	},                                                  
+	{                                                   
+		.clkdm_name = "core_l4_clkdm",                    
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)     
+	},                                                  
+	{                                                   
+		.clkdm_name = "iva2_clkdm",                       
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)     
+	},                                                  
+	{                                                   
+		.clkdm_name = "mpu_clkdm",                        
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)     
+	},                                                  
+	{                                                   
+		.clkdm_name = "wkup_clkdm",                       
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)     
+	},                                                  
+	{ NULL },                                           
+};                                                   
+                                                     
+
+
 /* 3430 PM_WKDEP_DSS: IVA2, MPU, WKUP */
 static struct clkdm_dep dss_wkdeps[] = {
 	{
@@ -355,6 +382,23 @@ static struct clkdm_dep per_sleepdeps[] = {
 	},
 	{ NULL },
 };
+
+/* hood add for debug */                          
+/* 3430: CM_SLEEPDEP_USBHOST: MPU, IVA */         
+static struct clkdm_dep usbhost_sleepdeps[] = {   
+	{                                                
+		.clkdm_name = "mpu_clkdm",                     
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)  
+	},                                               
+	{                                                
+		.clkdm_name = "iva2_clkdm",                    
+		.omap_chip = OMAP_CHIP_INIT(CHIP_IS_OMAP3430)  
+	},                                               
+	{ NULL },                                        
+};                                                
+/* hood add end */                                
+                                                  
+
 
 /* 3430: CM_SLEEPDEP_CAM: MPU */
 static struct clkdm_dep cam_sleepdeps[] = {
@@ -691,7 +735,14 @@ static struct clockdomain cam_clkdm = {
 static struct clockdomain usbhost_clkdm = {
 	.name		= "usbhost_clkdm",
 	.pwrdm		= { .name = "usbhost_pwrdm" },
-	.flags		= CLKDM_CAN_HWSUP_SWSUP,
+	//.flags		= CLKDM_CAN_HWSUP_SWSUP,
+		/* hood modify for debug */              
+//	.flags		= CLKDM_CAN_HWSUP_SWSUP,     
+	.flags		= CLKDM_CAN_SWSUP,             
+	.wkdep_srcs	= usbhost_wkdeps,            
+	.sleepdep_srcs	= usbhost_sleepdeps,     
+	/* hood add end */                       
+
 	.clktrctrl_mask = OMAP3430ES2_CLKTRCTRL_USBHOST_MASK,
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_GE_OMAP3430ES2),
 };
