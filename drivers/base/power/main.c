@@ -94,6 +94,7 @@ void device_pm_unlock(void)
  * device_pm_add - Add a device to the PM core's list of active devices.
  * @dev: Device to add to the list.
  */
+ // 增加到dpm_list列表中
 void device_pm_add(struct device *dev)
 {
 	pr_debug("PM: Adding info for %s:%s\n",
@@ -1007,13 +1008,14 @@ static int dpm_suspend(pm_message_t state)
 	mutex_lock(&dpm_list_mtx);
 	pm_transition = state;
 	async_error = 0;
-	while (!list_empty(&dpm_list)) {
+	// 关键在这里  逐个挂起
+	while (!list_empty(&dpm_list)) {   // dpm链表 逐个挂起外设
 		struct device *dev = to_device(dpm_list.prev);
 
-		get_device(dev);
+		get_device(dev);  // 获取设备
 		mutex_unlock(&dpm_list_mtx);
 
-		error = device_suspend(dev);
+		error = device_suspend(dev);  // 关键在于这里，逐个挂起该设备
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
@@ -1146,7 +1148,7 @@ int dpm_suspend_start(pm_message_t state)
 	might_sleep();
 	error = dpm_prepare(state);
 	if (!error)
-		error = dpm_suspend(state);
+		error = dpm_suspend(state);  // 关键是这里，逐个挂起外设，dpm挂起
 	return error;
 }
 EXPORT_SYMBOL_GPL(dpm_suspend_start);

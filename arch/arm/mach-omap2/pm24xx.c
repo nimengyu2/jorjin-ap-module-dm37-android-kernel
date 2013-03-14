@@ -91,6 +91,7 @@ static int omap2_fclks_active(void)
 	return 0;
 }
 
+// 完全进入完全的保持
 static void omap2_enter_full_retention(void)
 {
 	u32 l;
@@ -113,6 +114,7 @@ static void omap2_enter_full_retention(void)
 	 * Set MPU powerdomain's next power state to RETENTION;
 	 * preserve logic state during retention
 	 */
+	 // 
 	pwrdm_set_logic_retst(mpu_pwrdm, PWRDM_POWER_RET);
 	pwrdm_set_next_pwrst(mpu_pwrdm, PWRDM_POWER_RET);
 
@@ -120,6 +122,7 @@ static void omap2_enter_full_retention(void)
 	l = omap_ctrl_readl(OMAP2_CONTROL_DEVCONF0) | OMAP24XX_USBSTANDBYCTRL;
 	omap_ctrl_writel(l, OMAP2_CONTROL_DEVCONF0);
 
+	// gpio进入idle
 	omap2_gpio_prepare_for_idle(0);
 
 	if (omap2_pm_debug) {
@@ -142,6 +145,7 @@ static void omap2_enter_full_retention(void)
 	omap_uart_prepare_idle(2);
 
 	/* Jump to SRAM suspend code */
+	// 跳转到sram中进入挂起状态
 	omap2_sram_suspend(sdrc_read_reg(SDRC_DLLA_CTRL),
 			   OMAP_SDRC_REGADDR(SDRC_DLLA_CTRL),
 			   OMAP_SDRC_REGADDR(SDRC_POWER));
@@ -307,6 +311,7 @@ static int omap2_pm_begin(suspend_state_t state)
 	return 0;
 }
 
+// 开始挂起
 static int omap2_pm_suspend(void)
 {
 	u32 wken_wkup, mir1;
@@ -319,8 +324,8 @@ static int omap2_pm_suspend(void)
 	mir1 = omap_readl(0x480fe0a4);
 	omap_writel(1 << 5, 0x480fe0ac);
 
-	omap_uart_prepare_suspend();
-	omap2_enter_full_retention();
+	omap_uart_prepare_suspend();  // uart准备进入休眠
+	omap2_enter_full_retention();  // 
 
 	omap_writel(mir1, 0x480fe0a4);
 	omap2_prm_write_mod_reg(wken_wkup, WKUP_MOD, PM_WKEN);
@@ -335,7 +340,7 @@ static int omap2_pm_enter(suspend_state_t state)
 	switch (state) {
 	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
-		ret = omap2_pm_suspend();
+		ret = omap2_pm_suspend();  // 开始挂起
 		break;
 	default:
 		ret = -EINVAL;
@@ -353,7 +358,7 @@ static void omap2_pm_end(void)
 static const struct platform_suspend_ops omap_pm_ops[] = {
 	{
 		.begin		= omap2_pm_begin,
-		.enter		= omap2_pm_enter,
+		.enter		= omap2_pm_enter,   // 进入pm管理  真正的进入
 		.end		= omap2_pm_end,
 		.valid		= suspend_valid_only_mem,
 	}

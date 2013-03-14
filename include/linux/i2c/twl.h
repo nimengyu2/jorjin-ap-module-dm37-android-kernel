@@ -68,7 +68,7 @@
 // 从机3号，i2c的地址是0x4b
 #define TWL4030_MODULE_BACKUP		0x12
 #define TWL4030_MODULE_INT		0x13
-#define TWL4030_MODULE_PM_MASTER	0x14
+#define TWL4030_MODULE_PM_MASTER	0x14   // 这个数据仅仅是序号index，并不表示地址
 #define TWL4030_MODULE_PM_RECEIVER	0x15
 #define TWL4030_MODULE_RTC		0x16
 #define TWL4030_MODULE_SECURED_REG	0x17  // 最后一个模块
@@ -151,7 +151,13 @@
 #define MMC_PU				(0x1 << 3)
 #define MMC_PD				(0x1 << 2)
 
-#define TWL_SIL_TYPE(rev)		((rev) & 0x00FFFFFF)
+// 根据idcode的不同区分版本号
+// IDCODE=ES1.0 0x0009802F
+// IDCODE=ES1.1 0x1009802F
+// IDCODE=ES1.2 0x11009802F
+// 从idcode中获取sil类型，获取低24bit
+#define TWL_SIL_TYPE(rev)		((rev) & 0x00FFFFFF) 
+// 从idcode中的sil版本，获取高8bit
 #define TWL_SIL_REV(rev)		((rev) >> 24)
 #define TWL_SIL_5030			0x09002F
 #define TWL5030_REV_1_0			0x00
@@ -293,7 +299,12 @@ extern struct twl4030_power_data twl4030_generic_script;
 /*Interface Bit Register (INTBR) offsets
  *(Use TWL_4030_MODULE_INTBR)
  */
-
+ // 接口bit寄存器，基于TWL_4030_MODULE_INTBR的偏移
+ // IDCODE_7_0 R 8 0x00000085
+ // IDCODE_15_8 R 8 0x00000086
+ // IDCODE_23_16 R 8 0x00000087
+ // IDCODE_31_24 R 8 0x00000088
+ // arm是小端模式，直接读取到u32的即可，此时u32变量的低8bit就是[7:0]
 #define REG_IDCODE_7_0			0x00
 #define REG_IDCODE_15_8			0x01
 #define REG_IDCODE_16_23		0x02
@@ -504,13 +515,13 @@ extern struct twl4030_power_data twl4030_generic_script;
 #define RES_GRP_PR		0x4	/* Power references */
 #define RES_GRP_PP_PR		0x5
 #define RES_GRP_RC_PR		0x6
-#define RES_GRP_ALL		0x7	/* All resource groups */
+#define RES_GRP_ALL		0x7	/* All resource groups所有资源组 */
 
 #define RES_TYPE2_R0		0x0
 #define RES_TYPE2_R1		0x1
 #define RES_TYPE2_R2		0x2
 
-#define RES_TYPE_R0		0x0
+#define RES_TYPE_R0		0x0  // 类型r0
 #define RES_TYPE_ALL		0x7
 
 /* Resource states 资源状态 */
@@ -567,12 +578,14 @@ extern struct twl4030_power_data twl4030_generic_script;
  *    寄存器状态
  *  Singular Message (16 Bits): 突出的消息
  *    DEV_GRP[15:13] MT[12]  RES_ID[11:4]  RES_STATE[3:0]
+ *    设备组                 寄存器id      寄存器状态
  */
 
 #define MSG_BROADCAST(devgrp, grp, type, type2, state) \
 	( (devgrp) << 13 | 1 << 12 | (grp) << 9 | (type2) << 7 \
 	| (type) << 4 | (state))
 
+// 消息  信号    devgrp电源组  id为 state为状态
 #define MSG_SINGULAR(devgrp, id, state) \
 	((devgrp) << 13 | 0 << 12 | (id) << 4 | (state))
 
@@ -639,24 +652,24 @@ struct twl4030_keypad_data {
 };
 
 enum twl4030_usb_mode {
-	T2_USB_MODE_ULPI = 1,
-	T2_USB_MODE_CEA2011_3PIN = 2,
+	T2_USB_MODE_ULPI = 1,   // ulpi模式
+	T2_USB_MODE_CEA2011_3PIN = 2,  // 3线模式
 };
 
 struct twl4030_usb_data {
-	enum twl4030_usb_mode	usb_mode;
+	enum twl4030_usb_mode	usb_mode;  // usb模式
 };
 
 struct twl4030_ins {
-	u16 pmb_message;
-	u8 delay;
+	u16 pmb_message;  // twl4030 pmb消息
+	u8 delay;  // 延时
 };
 
 // 脚本结构体
 struct twl4030_script {
-	struct twl4030_ins *script;
-	unsigned size;
-	u8 flags;
+	struct twl4030_ins *script;  // 脚本内容；信息+延时
+	unsigned size;// 大小
+	u8 flags;// 标志
 #define TWL4030_WRST_SCRIPT	(1<<0)
 #define TWL4030_WAKEUP12_SCRIPT	(1<<1)
 #define TWL4030_WAKEUP3_SCRIPT	(1<<2)
@@ -665,22 +678,28 @@ struct twl4030_script {
 
 // 寄存器配置
 struct twl4030_resconfig {
+	// 资源名
 	u8 resource;
+	
 	// 电源资源所属的处理器组
 	u8 devgroup;	/* Processor group that Power resource belongs to */
-	// 电源资源地址，6/广播消息
+
+	// 电源资源地址，6/广播消息  
 	u8 type;	/* Power resource addressed, 6 / broadcast message */
+
 	// 电源资源地址，3/广播消息
 	u8 type2;	/* Power resource addressed, 3 / broadcast message */
+	
 	u8 remap_off;	/* off state remapping 重新映射的关闭状态*/
+	
 	u8 remap_sleep;	/* sleep state remapping 重新映射的休眠状态*/
 };
 
 struct twl4030_power_data {
-	struct twl4030_script **scripts;
-	unsigned num;
-	struct twl4030_resconfig *resource_config;
-	void (*twl5030_erratum27wa_script)(void);
+	struct twl4030_script **scripts; // 指向twl4030的脚本
+	unsigned num;  // 脚本个数
+	struct twl4030_resconfig *resource_config;  // 资源配置
+	void (*twl5030_erratum27wa_script)(void);  // 勘误脚本
 #define TWL4030_RESCONFIG_UNDEF	((u8)-1)
 };
 

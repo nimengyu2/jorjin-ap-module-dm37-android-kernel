@@ -15,6 +15,7 @@
 
 static int orig_fgconsole, orig_kmsg;
 
+// ×¼±¸ÖÕ¶Ë¹ÒÆð
 int pm_prepare_console(void)
 {
 	orig_fgconsole = vt_move_to_console(SUSPEND_CONSOLE, 1);

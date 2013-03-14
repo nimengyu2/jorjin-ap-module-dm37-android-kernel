@@ -40,6 +40,8 @@ static u8 twl4030_start_script_address = 0x2b;
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF	(1<<0)
 
+// 因为TWL4030_BASEADD_PM_MASTER的基地址为0x36，这个宏定义表示
+// 当前寄存器距离TWL4030_BASEADD_PM_MASTER的偏移
 #define PHY_TO_OFF_PM_MASTER(p)		(p - 0x36)
 #define PHY_TO_OFF_PM_RECEIVER(p)	(p - 0x5b)
 
@@ -64,8 +66,8 @@ static u8 twl4030_start_script_address = 0x2b;
 #define R_SEQ_ADD_S2A12		PHY_TO_OFF_PM_MASTER(0x56)
 #define	R_SEQ_ADD_S2A3		PHY_TO_OFF_PM_MASTER(0x57)
 #define	R_SEQ_ADD_WARM		PHY_TO_OFF_PM_MASTER(0x58)
-#define R_MEMORY_ADDRESS	PHY_TO_OFF_PM_MASTER(0x59)
-#define R_MEMORY_DATA		PHY_TO_OFF_PM_MASTER(0x5a)
+#define R_MEMORY_ADDRESS	PHY_TO_OFF_PM_MASTER(0x59) // 物理地址是0x59
+#define R_MEMORY_DATA		PHY_TO_OFF_PM_MASTER(0x5a) // 物理地址是0x5a
 
 /* Smartreflex Control */
 #define R_DCDC_GLOBAL_CFG     PHY_TO_OFF_PM_RECEIVER(0x61)
@@ -141,47 +143,57 @@ static u8 res_config_addrs[] = {
 	[RES_MAIN_REF]	= 0x94,
 };
 
+// 写脚本数据
 static int twl4030_write_script_byte(u8 address, u8 byte)
 {
 	int err;
-
+	// 写模块TWL4030_MODULE_PM_MASTER，
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
-				R_MEMORY_ADDRESS);
+				R_MEMORY_ADDRESS);  // 将变量address写到寄存器地址为R_MEMORY_ADDRESS
 	if (err)
 		goto out;
+	// 将变量byte写到R_MEMORY_DATA中  向其写入数据的话会自动增加编号
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, byte,
 				R_MEMORY_DATA);
 out:
 	return err;
 }
 
+// twl4030写脚本 信息
 static int twl4030_write_script_ins(u8 address, u16 pmb_message,
 					   u8 delay, u8 next)
 {
 	int err;
 
-	address *= 4;
+	address *= 4;   // pmb信息高8bit
 	err = twl4030_write_script_byte(address++, pmb_message >> 8);
 	if (err)
-		goto out;
+		goto out; 
+	// pmb信息低8bit
 	err = twl4030_write_script_byte(address++, pmb_message & 0xff);
 	if (err)
 		goto out;
+	// 写延时
 	err = twl4030_write_script_byte(address++, delay);
 	if (err)
 		goto out;
+	// 写下一个
 	err = twl4030_write_script_byte(address++, next);
 out:
 	return err;
 }
 
+// twl4030 写脚本
+// 参数  *script  指向脚本
+// 参数  len   脚本长度
 static int twl4030_write_script(u8 address, struct twl4030_ins *script,
 				       int len)
 {
 	int err;
-
+    // 写多个脚本  连续写脚本进去，每次脚本自加，地址也是自加
 	for (; len; len--, address++, script++) {
 		if (len == 1) {
+			// 最后一个的时候表示最后一个脚本了
 			err = twl4030_write_script_ins(address,
 						script->pmb_message,
 						script->delay,
@@ -200,12 +212,14 @@ static int twl4030_write_script(u8 address, struct twl4030_ins *script,
 	return err;
 }
 
+// twl4030配置唤醒序列
 static int twl4030_config_wakeup3_sequence(u8 address)
 {
 	int err;
 	u8 data;
 
 	/* Set SLEEP to ACTIVE SEQ address for P3 */
+	// 设定唤醒的地址，针对P3
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
 				R_SEQ_ADD_S2A3);
 	if (err)
@@ -225,12 +239,14 @@ out:
 	return err;
 }
 
+// twl4030配置wakeup12的序列
 static int twl4030_config_wakeup12_sequence(u8 address)
 {
 	int err = 0;
 	u8 data;
 
 	/* Set SLEEP to ACTIVE SEQ address for P1 and P2 */
+	// 设定唤醒的地址，针对P1 P2
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, address,
 				R_SEQ_ADD_S2A12);
 	if (err)
@@ -279,6 +295,7 @@ out:
 	return err;
 }
 
+// twl4030配置休眠序列
 static int twl4030_config_sleep_sequence(u8 address)
 {
 	int err;
@@ -293,6 +310,7 @@ static int twl4030_config_sleep_sequence(u8 address)
 	return err;
 }
 
+// twl4030配置热启动序列
 static int twl4030_config_warmreset_sequence(u8 address)
 {
 	int err;
@@ -341,6 +359,7 @@ out:
 	return err;
 }
 
+// twl4030配置资源
 static int twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 {
 	int rconfig_addr;
@@ -451,6 +470,7 @@ static int twl4030_configure_resource(struct twl4030_resconfig *rconfig)
 	return 0;
 }
 
+// 加载twl4030的脚本
 static int load_twl4030_script(struct twl4030_script *tscript,
 	       u8 address)
 {
@@ -494,6 +514,7 @@ out:
 	return err;
 }
 
+// 移除脚本
 int twl4030_remove_script(u8 flags)
 {
 	int err = 0;
@@ -548,6 +569,7 @@ int twl4030_remove_script(u8 flags)
 }
 
 /* API to enable smrtreflex on Triton side */
+// 以下的api用于使能smrtreflex
 static void twl4030_smartreflex_init(void)
 {
 	int ret = 0;
@@ -564,9 +586,11 @@ struct omap_sr_pmic_data twl4030_sr_data = {
 	.sr_pmic_init   = twl4030_smartreflex_init,
 };
 
+// twl4030电源sr初始化
 void __init twl4030_power_sr_init()
 {
 	/* Register the SR init API with the Smartreflex driver */
+	// 注册sr初始化api 使用smartreflex驱动
 	omap_sr_register_pmic(&twl4030_sr_data);
 }
 EXPORT_SYMBOL_GPL(twl4030_remove_script);
@@ -626,7 +650,8 @@ static void twl_erratum27_workaround(void)
 
 static bool is_twl5030_erratum27wa_required(void)
 {
-	if (twl_get_type() == TWL_SIL_5030)
+	// 首先针对tps65950，这里是不需要设置的
+	if (twl_get_type() == TWL_SIL_5030)  // 如果是twl5030的时候，需要勘误
 		return (twl_get_version() < TWL5030_REV_1_2);
 
 	return 0;
@@ -691,6 +716,7 @@ static int twl4030_omap3evm_init(void)
 }
 
 // 电源初始化
+// 输入参数 twl4030_scripts : twl4030电源数据
 int twl4030_power_init(struct twl4030_power_data *twl4030_scripts)
 {
 	int err = 0;
@@ -698,20 +724,21 @@ int twl4030_power_init(struct twl4030_power_data *twl4030_scripts)
 	struct twl4030_resconfig *resconfig;
 	u8 address = twl4030_start_script_address;
 
-	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
-			TWL4030_PM_MASTER_KEY_CFG1,
-			TWL4030_PM_MASTER_PROTECT_KEY);
+	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER,  // 设定pm需要解锁
+			TWL4030_PM_MASTER_KEY_CFG1,   // 第一个关键词
+			TWL4030_PM_MASTER_PROTECT_KEY); // 写保护寄存器
 	if (err)
 		goto unlock;
 
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER,
-			TWL4030_PM_MASTER_KEY_CFG2,
+			TWL4030_PM_MASTER_KEY_CFG2,   // 第二个key关键词
 			TWL4030_PM_MASTER_PROTECT_KEY);
 	if (err)
 		goto unlock;
 
 	/* Applying TWL5030 Erratum 27 WA based on Si revision &
 	 * flag updated from board file*/
+	 // 这里是针对twl5030做的设置
 	if (is_twl5030_erratum27wa_required()) {
 		pr_info("TWL5030: Enabling workaround for Si Erratum 27\n");
 		twl_erratum27_workaround();
@@ -719,13 +746,18 @@ int twl4030_power_init(struct twl4030_power_data *twl4030_scripts)
 			twl4030_scripts->twl5030_erratum27wa_script();
 	}
 
+	// 根据输入的脚本列表 逐个加载脚本
+	// twl4030_scripts->num为脚本的个数
 	for (i = 0; i < twl4030_scripts->num; i++) {
+		// 加载脚本到固定的地址
 		err = load_twl4030_script(twl4030_scripts->scripts[i], address);
 		if (err)
 			goto load;
+		// 增加地址
 		address += twl4030_scripts->scripts[i]->size;
 	}
 
+	// 资源配置
 	resconfig = twl4030_scripts->resource_config;
 	if (resconfig) {
 		while (resconfig->resource) {
@@ -742,12 +774,14 @@ int twl4030_power_init(struct twl4030_power_data *twl4030_scripts)
 	 *       we are running on OMAP3EVM. May not be necessary - but
 	 *       being prudent to ensure we don't break any other board.
 	 */
+	 // 如果是omap3evm的话，则进行omap3evm板子的初始化
 	if (machine_is_omap3evm()) {
 		err = twl4030_omap3evm_init() ;
 		if (err)
 			goto unlock;
 	}
 
+	// 重新进入保护
 	err = twl_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0,
 			TWL4030_PM_MASTER_PROTECT_KEY);
 	if (err)

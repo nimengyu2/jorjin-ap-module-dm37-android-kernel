@@ -570,9 +570,12 @@ static int omap3_pm_suspend(void)
 			goto restore;
 	}
 
+	// 挂起串口
 	omap_uart_prepare_suspend();
+	// 禁止中断
 	omap3_intc_suspend();
 
+	// 跳转到sram中进入挂起状态
 	omap_sram_idle();
 
 restore:
@@ -613,6 +616,7 @@ static int omap3_pm_enter(suspend_state_t unused)
 }
 
 /* Hooks to enable / disable UART interrupts during suspend */
+// 使能/禁止 串口中断  在挂起的时候
 static int omap3_pm_begin(suspend_state_t state)
 {
 	disable_hlt();
@@ -629,11 +633,12 @@ static void omap3_pm_end(void)
 	return;
 }
 
+// platform_suspend_ops结构体 用来给指针suspend_ops用的
 static const struct platform_suspend_ops omap_pm_ops[] = {
 	{
-		.begin		= omap3_pm_begin,
+		.begin		= omap3_pm_begin,  // 开始pm管理
 		.end		= omap3_pm_end,
-		.enter		= omap3_pm_enter,
+		.enter		= omap3_pm_enter,  // 进入suspend
 		.valid		= suspend_valid_only_mem,
 	}
 };

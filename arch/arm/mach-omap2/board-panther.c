@@ -413,10 +413,10 @@ static struct platform_device panther_dss_device = {
 };
 
 static struct regulator_consumer_supply panther_vdac_supply =
-	REGULATOR_SUPPLY("vdda_dac", "omapdss");
+	REGULATOR_SUPPLY("vdda_dac", "omapdss");  // vdda_dac是给omapdss使用的
 
 static struct regulator_consumer_supply panther_vdvi_supply =
-	REGULATOR_SUPPLY("vdds_dsi", "omapdss");
+	REGULATOR_SUPPLY("vdds_dsi", "omapdss");  // vdds_dsi是给omapdss使用的
 
 // 显示器初始化
 static void __init panther_display_init(void)
@@ -511,15 +511,17 @@ static struct platform_device btwilink_device = {
 static struct regulator_consumer_supply panther_vmmc2_supply =
 	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1");
 
-/* VMMC2 for driving the WL12xx module */
+/* VMMC2 for driving the  module */
+// vmmc2用于驱动wl12xx模块WL12xx
 static struct regulator_init_data panther_vmmc2 = {
 	.constraints = {
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+		.valid_ops_mask = REGULATOR_CHANGE_STATUS,  // 可以禁止和使能
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies = &panther_vmmc2_supply,
+	.consumer_supplies = &panther_vmmc2_supply,  // 用电者
 };
 
+// 固定的电压配置
 static struct fixed_voltage_config panther_vwlan = {
 	.supply_name            = "vwl1271",
 	.microvolts             = 1800000, /* 1.80V */
@@ -551,11 +553,11 @@ static struct regulator_consumer_supply panther_vsim_supply = {
 #endif
 
 static struct regulator_consumer_supply panther_vaux3_supply = {
-	.supply         = "cam_digital",
+	.supply         = "cam_digital",  // 供电者
 };
 
 static struct regulator_consumer_supply panther_vaux4_supply = {
-	.supply         = "cam_io",
+	.supply         = "cam_io",  // 供电者
 };
 
 static struct gpio_led gpio_leds[];
@@ -597,15 +599,16 @@ static struct twl4030_gpio_platform_data panther_gpio_data = {
 };
 
 /* VMMC1 for MMC1 pins CMD, CLK, DAT0..DAT3 (20 mA, plus card == max 220 mA) */
+// 针对mmc1引脚的 
 static struct regulator_init_data panther_vmmc1 = {
-	.constraints = {
-		.min_uV			= 1850000,
-		.max_uV			= 3150000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE
-					| REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
+	.constraints = { // 调整器参数
+		.min_uV			= 1850000,  // 最低电压
+		.max_uV			= 3150000,  // 最高电压
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL   // 正常模式
+					| REGULATOR_MODE_STANDBY,  // 支持休眠
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE  // 电压可改变
+					| REGULATOR_CHANGE_MODE  // 模式可改变
+					| REGULATOR_CHANGE_STATUS,  // 调整器可以被禁止和使能
 	},
 	.num_consumer_supplies	= 1,
 	.consumer_supplies	= &panther_vmmc1_supply,
@@ -630,77 +633,85 @@ static struct regulator_init_data panther_vsim = {
 #endif
 
 /* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
+// vdac 用于dss驱动s-video的时候
 static struct regulator_init_data panther_vdac = {
 	.constraints = {
-		.min_uV			= 1800000,
+		.min_uV			= 1800000,  // 电压为1.8v
 		.max_uV			= 1800000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL  // 正常模式
+					| REGULATOR_MODE_STANDBY,  // 可以支持休眠
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE  // 支持模式改变
+					| REGULATOR_CHANGE_STATUS,  // 调整器可以被禁止和使能
 	},
-	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &panther_vdac_supply,
+	.num_consumer_supplies	= 1, // 用电者
+	.consumer_supplies	= &panther_vdac_supply,  // 用电者参数
 };
 
 /* VPLL2 for digital video outputs */
+// vpll2用于数字视频输出
 static struct regulator_init_data panther_vpll2 = {
 	.constraints = {
-		.name			= "VDVI",
-		.min_uV			= 1800000,
+		.name			= "VDVI",  // 名字
+		.min_uV			= 1800000, // 电压1.8v
 		.max_uV			= 1800000,
-		.valid_modes_mask	= REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
-		.valid_ops_mask		= REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL  // 正常
+					| REGULATOR_MODE_STANDBY, // 支持休眠
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE // 支持修改模式
+					| REGULATOR_CHANGE_STATUS,// 调整器能够被禁止和使能
 	},
 	.num_consumer_supplies	= 1,
-	.consumer_supplies	= &panther_vdvi_supply,
+	.consumer_supplies	= &panther_vdvi_supply,  // 供电者信息
 };
 
 /* VAUX3 for CAM_DIGITAL */
+// vaux3用于数字cam接口
 static struct regulator_init_data panther_vaux3 = {
 	.constraints = {
 		/* CAM_DIGITAL(DVDD) may vary from 1.5v to 1.8v */
+		// 数字摄像头可以在1.5 到 1.8v供电
 		.min_uV                 = 1500000,
 		.max_uV                 = 1800000,
-		.apply_uV               = true,
-		.valid_modes_mask       = REGULATOR_MODE_NORMAL
-					| REGULATOR_MODE_STANDBY,
+		.apply_uV               = true,  // 
+		.valid_modes_mask       = REGULATOR_MODE_NORMAL // 普通模式
+					| REGULATOR_MODE_STANDBY, // 可以进入休眠
 		/* Add REGULATOR_CHANGE_VOLTAGE flag to control voltage */
-		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE
-					| REGULATOR_CHANGE_MODE
-					| REGULATOR_CHANGE_STATUS,
+		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE  // 电压可调
+					| REGULATOR_CHANGE_MODE  // 模式可调
+					| REGULATOR_CHANGE_STATUS,  // 可以使能和禁止
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &panther_vaux3_supply,
+	.consumer_supplies      = &panther_vaux3_supply,  // 用电者
 };
 
  /* VAUX4 for CAM_IO */
+ // vaux4 用于cam的io接口
 static struct regulator_init_data panther_vaux4 = {
 	.constraints = {
+		// 电压可变 在1.8v到2.8v
 		/* CAM_IO(DOVDD) may vary from 1.8v to 2.8v */
 		.min_uV                 = 1800000,
 		.max_uV                 = 2800000,
 		.apply_uV               = true,
-		.valid_modes_mask       = REGULATOR_MODE_NORMAL
-			| REGULATOR_MODE_STANDBY,
+		.valid_modes_mask       = REGULATOR_MODE_NORMAL  // 正常模式
+			| REGULATOR_MODE_STANDBY, // 可休眠
 		/* Add REGULATOR_CHANGE_VOLTAGE flag to control voltage */
-		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE
+		.valid_ops_mask         = REGULATOR_CHANGE_VOLTAGE  // 电压可调
 			| REGULATOR_CHANGE_MODE
 			| REGULATOR_CHANGE_STATUS,
 	},
 	.num_consumer_supplies  = 1,
-	.consumer_supplies      = &panther_vaux4_supply,
+	.consumer_supplies      = &panther_vaux4_supply,  // 供电者
 };
 
+// twl4030 usb数据结构体
 static struct twl4030_usb_data panther_usb_data = {
-	.usb_mode	= T2_USB_MODE_ULPI,
+	.usb_mode	= T2_USB_MODE_ULPI,  
 };
 
 /**
  ** Macro to configure resources
  **/
+ // 宏定义用于配置资源
 #define TWL4030_RESCONFIG(res,grp,typ1,typ2,state)  \
 {                       \
     .resource   = res,          \
@@ -709,8 +720,14 @@ static struct twl4030_usb_data panther_usb_data = {
     .type2      = typ2,         \
     .remap_sleep    = state         \
 }
+// 分为以下几个电源组
+// #define DEV_GRP_P1		0x1	/* P1: all OMAP devices 所有omap设备*/
+// #define DEV_GRP_P2		0x2	/* P2: all Modem devices 所有modem设备*/
+// #define DEV_GRP_P3		0x4	/* P3: all peripheral devices 所有外设设备*/
+// #define DEV_GRP_ALL		0x7	/* P1/P2/P3: all devices 所有的设备*/
 
 static struct twl4030_resconfig  __initdata board_twl4030_rconfig[] = {
+	// 资源名RES_VPLL1，属于DEV_GRP_P1组，type=3 type2=1 重新映射休眠状态关闭
     TWL4030_RESCONFIG(RES_VPLL1, DEV_GRP_P1, 3, 1, RES_STATE_OFF),      /* ? */
     TWL4030_RESCONFIG(RES_VINTANA1, DEV_GRP_ALL, 1, 2, RES_STATE_SLEEP),
     TWL4030_RESCONFIG(RES_VINTANA2, DEV_GRP_ALL, 0, 2, RES_STATE_SLEEP),
@@ -729,14 +746,16 @@ static struct twl4030_resconfig  __initdata board_twl4030_rconfig[] = {
 /**
  ** Optimized 'Active to Sleep' sequence
  **/
+ // 优化过的  激活到休眠 序列
 static struct twl4030_ins panther_sleep_seq[] __initdata = {
     { MSG_SINGULAR(DEV_GRP_NULL, RES_HFCLKOUT, RES_STATE_SLEEP), 20},
     { MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R1, RES_STATE_SLEEP), 2 },
     { MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R2, RES_STATE_SLEEP), 2 },
 };
 
+// 休眠脚本
 static struct twl4030_script panther_sleep_script __initdata = {
-    .script = panther_sleep_seq,
+    .script = panther_sleep_seq,  // 脚本序列
     .size   = ARRAY_SIZE(panther_sleep_seq),
     .flags  = TWL4030_SLEEP_SCRIPT,
 };
@@ -744,10 +763,12 @@ static struct twl4030_script panther_sleep_script __initdata = {
 /**
  ** Optimized 'Sleep to Active (P12)' sequence
  **/
+ // 优化过的 休眠到激活p12 序列
 static struct twl4030_ins panther_wake_p12_seq[] __initdata = {
     { MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R1, RES_STATE_ACTIVE), 2 }
 };
 
+// 唤醒p12脚本
 static struct twl4030_script panther_wake_p12_script __initdata = {
     .script = panther_wake_p12_seq,
     .size   = ARRAY_SIZE(panther_wake_p12_seq),
@@ -757,6 +778,7 @@ static struct twl4030_script panther_wake_p12_script __initdata = {
 /**
  ** Optimized 'Sleep to Active' (P3) sequence
  **/
+ // 睡眠到激活p3序列
 static struct twl4030_ins panther_wake_p3_seq[] __initdata = {
     { MSG_BROADCAST(DEV_GRP_NULL, RES_GRP_ALL, RES_TYPE_R0, RES_TYPE2_R2, RES_STATE_ACTIVE), 2 }
 };
@@ -770,6 +792,7 @@ static struct twl4030_script panther_wake_p3_script __initdata = {
 /**
  ** Optimized warm reset sequence (for less power surge)
  **/
+ // 优化过的热复位序列  针对功耗要求不高的时候
 static struct twl4030_ins panther_wrst_seq[] __initdata = {
     { MSG_SINGULAR(DEV_GRP_NULL, RES_RESET, RES_STATE_OFF), 0x2 },
     { MSG_SINGULAR(DEV_GRP_NULL, RES_MAIN_REF, RES_STATE_WRST), 2 },
@@ -789,6 +812,7 @@ static struct twl4030_script panther_wrst_script __initdata = {
     .flags  = TWL4030_WRST_SCRIPT,
 };
 
+// 整体的脚本
 static struct twl4030_script __initdata *board_twl4030_scripts[] = {
     &panther_wake_p12_script,
     &panther_wake_p3_script,
@@ -803,6 +827,7 @@ static struct twl4030_power_data __initdata panther_script_data = {
     .resource_config    = board_twl4030_rconfig,  // 资源配置
 };
 
+// 音频codec数据
 static struct twl4030_codec_audio_data panther_audio_data = {
 	.audio_mclk = 26000000,
 	.digimic_delay = 1,
@@ -818,8 +843,9 @@ static struct twl4030_codec_data panther_codec_data = {
 	.audio = &panther_audio_data,
 };
 
+// twl4030平台数据
 static struct twl4030_platform_data panther_twldata = {
-	.irq_base	= TWL4030_IRQ_BASE,
+	.irq_base	= TWL4030_IRQ_BASE,  // 中断
 	.irq_end	= TWL4030_IRQ_END,
 
 	/* platform_data for children goes here */
@@ -830,10 +856,10 @@ static struct twl4030_platform_data panther_twldata = {
 //
 //	[LDO NAME]	[SCHEMATIC SYMBOLE]	[CONNECTED DEVICE (Outer/Inner)]
 //	VPLL2		VDD_MIC		None / DSI, CSIPHY2
-//	VMMC1		VDD_MMC1		Micro SD / None
+//	VMMC1		VDD_MMC1		Micro SD / None  sd卡
 //	VMMC2		VMMC2			None / Nnoe
 //	VAUX1		CAM_ANA		None / None
-//	VAUX2		EXP_VDD		USB PHY / None
+//	VAUX2		EXP_VDD		USB PHY / None  usb物理芯片
 //	VAUX3		CAM_DIGITAL		Camera Module / None
 //	VAUX4		CAM_IO			Camera Module / None
 // ========== Listed below are the regulators which used inside AP module ==========

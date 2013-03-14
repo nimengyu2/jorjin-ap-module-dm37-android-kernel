@@ -27,11 +27,13 @@
  */
 
 enum {
-	WAKE_LOCK_SUSPEND, /* Prevent suspend */
-	WAKE_LOCK_IDLE,    /* Prevent low power idle */
-	WAKE_LOCK_TYPE_COUNT
+	WAKE_LOCK_SUSPEND, /* Prevent suspend   禁止挂起的锁*/  
+	WAKE_LOCK_IDLE,    /* Prevent low power idle 禁止idle的锁*/
+	WAKE_LOCK_TYPE_COUNT  // 总共个数 为2
 };
 
+
+// wake_lock结构体
 struct wake_lock {
 #ifdef CONFIG_HAS_WAKELOCK
 	struct list_head    link;
@@ -56,9 +58,9 @@ struct wake_lock {
 
 void wake_lock_init(struct wake_lock *lock, int type, const char *name);
 void wake_lock_destroy(struct wake_lock *lock);
-void wake_lock(struct wake_lock *lock);
+void wake_lock(struct wake_lock *lock);  // 加锁 wake 锁
 void wake_lock_timeout(struct wake_lock *lock, long timeout);
-void wake_unlock(struct wake_lock *lock);
+void wake_unlock(struct wake_lock *lock); // 解锁 wake锁
 
 /* wake_lock_active returns a non-zero value if the wake_lock is currently
  * locked. If the wake_lock has a timeout, it does not check the timeout

@@ -627,8 +627,8 @@ static struct i2c_driver dummy_driver = {
 
 /**
  * i2c_new_dummy - return a new i2c device bound to a dummy driver
- * @adapter: the adapter managing the device
- * @address: seven bit address to be used
+ * @adapter: the adapter managing the device管理设备的适配器
+ * @address: seven bit address to be used使用的7bit地址
  * Context: can sleep
  *
  * This returns an I2C client bound to the "dummy" driver, intended for use

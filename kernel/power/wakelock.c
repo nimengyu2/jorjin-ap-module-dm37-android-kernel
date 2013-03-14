@@ -34,19 +34,19 @@ enum {
 static int debug_mask = DEBUG_EXIT_SUSPEND | DEBUG_WAKEUP;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-#define WAKE_LOCK_TYPE_MASK              (0x0f)
-#define WAKE_LOCK_INITIALIZED            (1U << 8)
-#define WAKE_LOCK_ACTIVE                 (1U << 9)
+#define WAKE_LOCK_TYPE_MASK              (0x0f)  // 锁的类型
+#define WAKE_LOCK_INITIALIZED            (1U << 8)// 锁初始化
+#define WAKE_LOCK_ACTIVE                 (1U << 9)  // 锁激活
 #define WAKE_LOCK_AUTO_EXPIRE            (1U << 10)
 #define WAKE_LOCK_PREVENTING_SUSPEND     (1U << 11)
 
 static DEFINE_SPINLOCK(list_lock);
 static LIST_HEAD(inactive_locks);
 static struct list_head active_wake_locks[WAKE_LOCK_TYPE_COUNT];
-static int current_event_num;
-struct workqueue_struct *suspend_work_queue;
-struct wake_lock main_wake_lock;
-suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;
+static int current_event_num;  // 当前时间个数
+struct workqueue_struct *suspend_work_queue;  // 挂起任务队列
+struct wake_lock main_wake_lock;   // 主唤醒锁
+suspend_state_t requested_suspend_state = PM_SUSPEND_MEM;  // 请求的挂起状态
 static struct wake_lock unknown_wakeup;
 
 #ifdef CONFIG_WAKELOCK_STAT
@@ -165,6 +165,7 @@ static void wake_unlock_stat_locked(struct wake_lock *lock, int expired)
 	}
 }
 
+// 更新睡眠等待状态锁
 static void update_sleep_wait_stats_locked(int done)
 {
 	struct wake_lock *lock;
@@ -259,11 +260,14 @@ long has_wake_lock(int type)
 	return ret;
 }
 
+
+// 挂起函数
 static void suspend(struct work_struct *work)
 {
 	int ret;
 	int entry_event_num;
 
+	// 判断系统中是否还有禁止挂起的锁
 	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: abort suspend\n");
@@ -271,15 +275,18 @@ static void suspend(struct work_struct *work)
 	}
 
 	entry_event_num = current_event_num;
+	// 文件系统同步
 	sys_sync();
 	if (debug_mask & DEBUG_SUSPEND)
-		pr_info("suspend: enter suspend\n");
+		pr_info("suspend: enter suspend\n");  // 打印进入挂起
+	// 调用pm_suspend  使用请求的挂起状态
 	ret = pm_suspend(requested_suspend_state);
-	if (debug_mask & DEBUG_EXIT_SUSPEND) {
+	if (debug_mask & DEBUG_EXIT_SUSPEND) {   
 		struct timespec ts;
 		struct rtc_time tm;
 		getnstimeofday(&ts);
 		rtc_time_to_tm(ts.tv_sec, &tm);
+		// 退出挂起信息
 		pr_info("suspend: exit suspend, ret = %d "
 			"(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n", ret,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -291,6 +298,7 @@ static void suspend(struct work_struct *work)
 		wake_lock_timeout(&unknown_wakeup, HZ / 2);
 	}
 }
+// 声明 suspend函数 即上面那个函数
 static DECLARE_WORK(suspend_work, suspend);
 
 static void expire_wake_locks(unsigned long data)
@@ -476,39 +484,43 @@ void wake_lock_timeout(struct wake_lock *lock, long timeout)
 }
 EXPORT_SYMBOL(wake_lock_timeout);
 
+// 解锁
 void wake_unlock(struct wake_lock *lock)
 {
 	int type;
 	unsigned long irqflags;
+	// 保存irqflags
 	spin_lock_irqsave(&list_lock, irqflags);
-	type = lock->flags & WAKE_LOCK_TYPE_MASK;
+	type = lock->flags & WAKE_LOCK_TYPE_MASK;  // 获取锁的类型
 #ifdef CONFIG_WAKELOCK_STAT
 	wake_unlock_stat_locked(lock, 0);
 #endif
 	if (debug_mask & DEBUG_WAKE_LOCK)
-		pr_info("wake_unlock: %s\n", lock->name);
+		pr_info("wake_unlock: %s\n", lock->name); // 解锁
 	lock->flags &= ~(WAKE_LOCK_ACTIVE | WAKE_LOCK_AUTO_EXPIRE);
 	list_del(&lock->link);
 	list_add(&lock->link, &inactive_locks);
-	if (type == WAKE_LOCK_SUSPEND) {
-		long has_lock = has_wake_lock_locked(type);
-		if (has_lock > 0) {
+	if (type == WAKE_LOCK_SUSPEND) {  // 如果是禁止挂起的锁
+		long has_lock = has_wake_lock_locked(type);  // 判断是否还有锁
+		if (has_lock > 0) {  // 如果还有锁，has_lock即解锁需要的最大时间
 			if (debug_mask & DEBUG_EXPIRE)
 				pr_info("wake_unlock: %s, start expire timer, "
 					"%ld\n", lock->name, has_lock);
 			mod_timer(&expire_timer, jiffies + has_lock);
-		} else {
-			if (del_timer(&expire_timer))
+		} else {  // 系统中已经没有锁了
+			if (del_timer(&expire_timer))  // 删除定时器
 				if (debug_mask & DEBUG_EXPIRE)
 					pr_info("wake_unlock: %s, stop expire "
-						"timer\n", lock->name);
-			if (has_lock == 0)
+						"timer\n", lock->name);  // 停止定时器
+			if (has_lock == 0)  // 这里表示真的没有其他锁了，如果为-1，表示出错
+			    // 执行suspend_work工作 这里即static void suspend(struct work_struct *work)
 				queue_work(suspend_work_queue, &suspend_work);
 		}
+		// 如果是main_wake_lock锁
 		if (lock == &main_wake_lock) {
 			if (debug_mask & DEBUG_SUSPEND)
 				print_active_locks(WAKE_LOCK_SUSPEND);
-#ifdef CONFIG_WAKELOCK_STAT
+#ifdef CONFIG_WAKELOCK_STAT  // 这里CONFIG_WAKELOCK_STAT=y
 			update_sleep_wait_stats_locked(0);
 #endif
 		}

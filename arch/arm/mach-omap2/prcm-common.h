@@ -24,7 +24,7 @@
  */
 #define OCP_MOD						0x000
 #define MPU_MOD						0x100
-#define CORE_MOD					0x200
+#define CORE_MOD					0x200   // coreµÿ÷∑
 #define GFX_MOD						0x300
 #define WKUP_MOD					0x400
 #define PLL_MOD						0x500

@@ -27,6 +27,7 @@
 
 u32 omap2_prm_read_mod_reg(s16 module, u16 idx)
 {
+	// #define OMAP3430_PRM_BASE	0x48306800
 	return __raw_readl(prm_base + module + idx);
 }
 
@@ -52,8 +53,8 @@ u32 omap2_prm_rmw_mod_reg_bits(u32 mask, u32 bits, s16 module, s16 idx)
 u32 omap2_prm_read_mod_bits_shift(s16 domain, s16 idx, u32 mask)
 {
 	u32 v;
-
-	v = omap2_prm_read_mod_reg(domain, idx);
+	// ¶ÁÈ¡¼Ä´æÆ÷   
+	v = omap2_prm_read_mod_reg(domain, idx);  // ¶ÁÈ¡prm_base + module + idx
 	v &= mask;
 	v >>= __ffs(mask);
 

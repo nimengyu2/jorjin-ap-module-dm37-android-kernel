@@ -29,10 +29,10 @@ static inline void pm_restore_console(void)
 
 typedef int __bitwise suspend_state_t;
 
-#define PM_SUSPEND_ON		((__force suspend_state_t) 0)
-#define PM_SUSPEND_STANDBY	((__force suspend_state_t) 1)
-#define PM_SUSPEND_MEM		((__force suspend_state_t) 3)
-#define PM_SUSPEND_MAX		((__force suspend_state_t) 4)
+#define PM_SUSPEND_ON		((__force suspend_state_t) 0)   // 正常
+#define PM_SUSPEND_STANDBY	((__force suspend_state_t) 1)  // 标准sleep
+#define PM_SUSPEND_MEM		((__force suspend_state_t) 3) // suspend to ram
+#define PM_SUSPEND_MAX		((__force suspend_state_t) 4)  // 最大的个数
 
 /**
  * struct platform_suspend_ops - Callbacks for managing platform dependent

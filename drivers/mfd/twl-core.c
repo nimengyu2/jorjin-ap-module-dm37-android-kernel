@@ -90,10 +90,11 @@
 #define twl_has_power()        false
 #endif
 
+// 判断是否有rtc
 #if defined(CONFIG_RTC_DRV_TWL4030) || defined(CONFIG_RTC_DRV_TWL4030_MODULE)
-#define twl_has_rtc()	true
+#define twl_has_rtc()	true   // twl4030是有rtc的
 #else
-#define twl_has_rtc()	false
+#define twl_has_rtc()	false   
 #endif
 
 #if defined(CONFIG_TWL4030_USB) || defined(CONFIG_TWL4030_USB_MODULE)
@@ -254,7 +255,7 @@ struct twl_client {
 	struct mutex xfer_lock;
 };
 
-// 4个从机的iic地址，存在这里
+// 4个从机的iic地址，存在这里   用于存储4个从机的地址
 static struct twl_client twl_modules[TWL_NUM_SLAVES];
 
 
@@ -278,7 +279,7 @@ static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 
 	{ 0, TWL4030_BASEADD_USB },   // usb其实地址  属于第1个从设备
 
-	{ 1, TWL4030_BASEADD_AUDIO_VOICE },
+	{ 1, TWL4030_BASEADD_AUDIO_VOICE },  // AUDIO_VOICE属于第二个从设备
 	{ 1, TWL4030_BASEADD_GPIO },
 	{ 1, TWL4030_BASEADD_INTBR },
 	{ 1, TWL4030_BASEADD_PIH },
@@ -299,7 +300,7 @@ static struct twl_mapping twl4030_map[TWL4030_MODULE_LAST + 1] = {
 
 	{ 3, TWL4030_BASEADD_BACKUP },
 	{ 3, TWL4030_BASEADD_INT },
-	{ 3, TWL4030_BASEADD_PM_MASTER },
+	{ 3, TWL4030_BASEADD_PM_MASTER },  // TWL4030_MODULE_PM_MASTER 模块的base地址
 	{ 3, TWL4030_BASEADD_PM_RECEIVER },
 	{ 3, TWL4030_BASEADD_RTC },
 	{ 3, TWL4030_BASEADD_SECURED_REG },  // 不同的不一样
@@ -528,6 +529,7 @@ static int twl_read_idcode_register(void)
 {
 	int err;
     // 写INTBR模块的寄存器REG_UNLOCK_TEST_REG，数据为TWL_EEPROM_R_UNLOCK
+    // 向其中写入01001001来解锁
 	err = twl_i2c_write_u8(TWL4030_MODULE_INTBR, TWL_EEPROM_R_UNLOCK,
 						REG_UNLOCK_TEST_REG);
 	if (err) {
@@ -535,6 +537,7 @@ static int twl_read_idcode_register(void)
 		goto fail;
 	}
 
+	// 读取4个字节的idcode代码  连接成一个32bit的idcode
 	err = twl_i2c_read(TWL4030_MODULE_INTBR, (u8 *)(&twl_idcode),
 						REG_IDCODE_7_0, 4);
 	if (err) {
@@ -542,6 +545,7 @@ static int twl_read_idcode_register(void)
 		goto fail;
 	}
 
+	// 加锁
 	err = twl_i2c_write_u8(TWL4030_MODULE_INTBR, 0x0, REG_UNLOCK_TEST_REG);
 	if (err)
 		pr_err("TWL4030 Unable to relock IDCODE registers -%d\n", err);
@@ -551,12 +555,13 @@ fail:
 
 /**
  * twl_get_type - API to get TWL Si type.
- *
- * Api to get the TWL Si type from IDCODE value.
+ *  获取twl的si类型
+ * Api to get the TWL Si type from IDCODE value.  从idcode值中获取twl的si类型
  */
 int twl_get_type(void)
 {
-	return TWL_SIL_TYPE(twl_idcode);
+	// 获取twl类型
+	return TWL_SIL_TYPE(twl_idcode);  // 获取低的24bit
 }
 EXPORT_SYMBOL_GPL(twl_get_type);
 
@@ -565,6 +570,7 @@ EXPORT_SYMBOL_GPL(twl_get_type);
  *
  * Api to get the TWL Si version from IDCODE value.
  */
+ // 获取twl的版本，分为3个版本ES
 int twl_get_version(void)
 {
 	return TWL_SIL_REV(twl_idcode);
@@ -580,6 +586,7 @@ add_numbered_child(unsigned chip, const char *name, int num,
 	struct twl_client	*twl = &twl_modules[chip];
 	int			status;
 
+	// 分配设备结构体
 	pdev = platform_device_alloc(name, num);
 	if (!pdev) {
 		dev_dbg(&twl->client->dev, "can't alloc dev\n");
@@ -587,9 +594,11 @@ add_numbered_child(unsigned chip, const char *name, int num,
 		goto err;
 	}
 
+	// 初始化是否能够唤醒cpu  是否可唤醒
 	device_init_wakeup(&pdev->dev, can_wakeup);
 	pdev->dev.parent = &twl->client->dev;
 
+	// 增加平台设备数据
 	if (pdata) {
 		status = platform_device_add_data(pdev, pdata, pdata_len);
 		if (status < 0) {
@@ -662,7 +671,7 @@ add_regulator(int num, struct regulator_init_data *pdata)
  * for the PIH, and the next are for the PWR_INT SIH, since
  * that's how twl_init_irq() sets things up.
  */
-
+// 增加孩子
 static int
 add_children(struct twl4030_platform_data *pdata, unsigned long features)
 {
@@ -733,6 +742,7 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 					| REGULATOR_CHANGE_STATUS,
 			};
 
+			// 增加各种的调整器
 			child = add_regulator_linked(TWL4030_REG_VUSB1V5,
 						      &usb_fixed, &usb1v5, 1);
 			if (IS_ERR(child))
@@ -802,30 +812,37 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
 
 	/* twl4030 regulators */
 	if (twl_has_regulator() && twl_class_is_4030()) {
+		// 增加vppl1
 		child = add_regulator(TWL4030_REG_VPLL1, pdata->vpll1);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vio
 		child = add_regulator(TWL4030_REG_VIO, pdata->vio);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vdd1
 		child = add_regulator(TWL4030_REG_VDD1, pdata->vdd1);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vdd2
 		child = add_regulator(TWL4030_REG_VDD2, pdata->vdd2);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vmmc1
 		child = add_regulator(TWL4030_REG_VMMC1, pdata->vmmc1);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vdac
 		child = add_regulator(TWL4030_REG_VDAC, pdata->vdac);
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 
+		// 增加vaux2
 		child = add_regulator((features & TWL4030_VAUX2)
 					? TWL4030_REG_VAUX2_4030
 					: TWL4030_REG_VAUX2,
@@ -950,6 +967,7 @@ add_children(struct twl4030_platform_data *pdata, unsigned long features)
  * letting it generate the right frequencies for USB, MADC, and
  * other purposes.
  */
+ // 保护pm master
 static inline int __init protect_pm_master(void)
 {
 	int e = 0;
@@ -959,6 +977,7 @@ static inline int __init protect_pm_master(void)
 	return e;
 }
 
+// 解除保护
 static inline int __init unprotect_pm_master(void)
 {
 	int e = 0;
@@ -973,6 +992,7 @@ static inline int __init unprotect_pm_master(void)
 	return e;
 }
 
+// 时钟初始化
 static void clocks_init(struct device *dev,
 			struct twl4030_clock_init_data *clock)
 {
@@ -993,6 +1013,7 @@ static void clocks_init(struct device *dev,
 		return;
 	}
 
+	// 获取clk速度
 	rate = clk_get_rate(osc);
 	clk_put(osc);
 
@@ -1041,6 +1062,7 @@ int twl4030_init_chip_irq(const char *chip);
 int twl6030_init_irq(int irq_num, unsigned irq_base, unsigned irq_end);
 int twl6030_exit_irq(void);
 
+// 移除twl
 static int twl_remove(struct i2c_client *client)
 {
 	unsigned i;
@@ -1069,6 +1091,7 @@ static int twl_remove(struct i2c_client *client)
 #define ENABLE_VAUX2_DEV_GRP 0x20
 
 /* Enable USB GPIOs on new OMAP3EVM */
+// 使能usb gpio
 static void usb_gpio_settings(void)
 {
 	unsigned char val;
@@ -1091,6 +1114,7 @@ static void usb_gpio_settings(void)
 }
 
 /* NOTE:  this driver only handles a single twl4030/tps659x0 chip */
+// 这个驱动仅仅用于处理twl4030即tps659x0芯片的
 static int __devinit
 twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -1100,27 +1124,31 @@ twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	u8 temp;
 	int ret = 0;
 
+	// 首先获取平台数据结构体
 	if (!pdata) {
 		dev_dbg(&client->dev, "no platform data?\n");
 		return -EINVAL;
 	}
 
+	// 检查是否有iic功能
 	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
 		dev_dbg(&client->dev, "can't talk I2C?\n");
 		return -EIO;
 	}
 
+	// 判断是否在使用
 	if (inuse) {
 		dev_dbg(&client->dev, "driver is already in use\n");
 		return -EBUSY;
 	}
 
+	// 判断4个从机地址
 	for (i = 0; i < TWL_NUM_SLAVES; i++) {
-		struct twl_client	*twl = &twl_modules[i];
+		struct twl_client	*twl = &twl_modules[i];  // 从机地址号
 
-		twl->address = client->addr + i;
+		twl->address = client->addr + i; // 根据输入的地址参数 加上 0 1 2 3这四种
 		if (i == 0)
-			twl->client = client;
+			twl->client = client;   // 从机设备结构体
 		else {
 			twl->client = i2c_new_dummy(client->adapter,
 					twl->address);
@@ -1131,6 +1159,7 @@ twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 				goto fail;
 			}
 		}
+		// 互斥锁
 		mutex_init(&twl->xfer_lock);
 	}
 	inuse = true;
@@ -1138,27 +1167,31 @@ twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		twl_id = TWL6030_CLASS_ID;
 		twl_map = &twl6030_map[0];
 	} else {
-		twl_id = TWL4030_CLASS_ID;
-		twl_map = &twl4030_map[0];
+		twl_id = TWL4030_CLASS_ID;// 设定twl的id
+		twl_map = &twl4030_map[0];  // 设定twl的映射
 	}
 
 	/* setup clock framework */
+	// 设定时钟框架
 	clocks_init(&client->dev, pdata->clock);
 
 	/* read TWL IDCODE Register */
+	// 读取twl的idcode寄存器
 	if (twl_id == TWL4030_CLASS_ID) {
 		ret = twl_read_idcode_register();
 		WARN(ret < 0, "Error: reading twl_idcode register value\n");
 	}
 
 	/* load power event scripts */
+	// 加载电源事件脚本
 	if (twl_has_power()) {
 		twl4030_power_sr_init();
 		 if (pdata->power)
-			twl4030_power_init(pdata->power);
+			twl4030_power_init(pdata->power);  // 初始化电源
 	}
 
 	/* Maybe init the T2 Interrupt subsystem */
+	// 中断信息
 	if (client->irq
 			&& pdata->irq_base
 			&& pdata->irq_end > pdata->irq_base) {
@@ -1179,7 +1212,7 @@ twl_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	 * Program I2C_SCL_CTRL_PU(bit 0)=0, I2C_SDA_CTRL_PU (bit 2)=0,
 	 * SR_I2C_SCL_CTRL_PU(bit 4)=0 and SR_I2C_SDA_CTRL_PU(bit 6)=0.
 	 */
-
+	// 禁止twl4030 twl5030 iic上拉，在接口iic1和iic4上
 	if (twl_class_is_4030()) {
 		twl_i2c_read_u8(TWL4030_MODULE_INTBR, &temp, REG_GPPUPDCTR1);
 		temp &= ~(SR_I2C_SDA_CTRL_PU | SR_I2C_SCL_CTRL_PU | \
@@ -1197,7 +1230,7 @@ fail:
 }
 
 static const struct i2c_device_id twl_ids[] = {
-	{ "twl4030", TWL4030_VAUX2 },	/* "Triton 2" */
+	{ "twl4030", TWL4030_VAUX2 },	/* "Triton 2" */  // 设备twl4030名称
 	{ "twl5030", 0 },		/* T2 updated */
 	{ "twl5031", TWL5031 },		/* TWL5030 updated */
 	{ "tps65950", 0 },		/* catalog version of twl5030 */
@@ -1211,13 +1244,14 @@ MODULE_DEVICE_TABLE(i2c, twl_ids);
 /* One Client Driver , 4 Clients */
 static struct i2c_driver twl_driver = {
 	.driver.name	= DRIVER_NAME,
-	.id_table	= twl_ids,
-	.probe		= twl_probe,
-	.remove		= twl_remove,
+	.id_table	= twl_ids, // id列表
+	.probe		= twl_probe,  // twl挂载函数
+	.remove		= twl_remove,  // twl移除函数
 };
 
 static int __init twl_init(void)
 {
+	// 增加设备到iic总线上
 	return i2c_add_driver(&twl_driver);
 }
 subsys_initcall(twl_init);

@@ -39,47 +39,53 @@
 
 /*
  * Regulator operating modes.
- *
+ * 调整器操作模式
  * Regulators can run in a variety of different operating modes depending on
  * output load. This allows further system power savings by selecting the
  * best (and most efficient) regulator mode for a desired load.
- *
+ * 调整器能够运行在各种不同的操作模式，根据输出的负载，这里运行更高的系统
+ * 节省功耗要求，选择不同的调整器模式
  * Most drivers will only care about NORMAL. The modes below are generic and
  * will probably not match the naming convention of your regulator data sheet
  * but should match the use cases in the datasheet.
- *
+ * 大部分驱动只会关心normal模式，这个模式
  * In order of power efficiency (least efficient at top).
  *
- *  Mode       Description
+ *  Mode       Description   
  *  FAST       Regulator can handle fast changes in it's load.
  *             e.g. useful in CPU voltage & frequency scaling where
  *             load can quickly increase with CPU frequency increases.
- *
+ *             调整器能够快速改变电压，当他的负载变化，比如如果cpu电压
+ *             和频率是成比率的话，在cpu频率增长的时候电压将会快速增加
  *  NORMAL     Normal regulator power supply mode. Most drivers will
  *             use this mode.
- *
+ *             正常的调整器电压模式，大部分驱动将会使用这个模式
  *  IDLE       Regulator runs in a more efficient mode for light
  *             loads. Can be used for devices that have a low power
  *             requirement during periods of inactivity. This mode
  *             may be more noisy than NORMAL and may not be able
  *             to handle fast load switching.
- *
+ *             调整器运行在这个模式，会更有效率，比如轻载的时候，
+ *             能够使用在那写需要低功耗的情况下，这个模式将会有更多的
+ *             纹波来处理快速的负载切换
  *  STANDBY    Regulator runs in the most efficient mode for very
  *             light loads. Can be used by devices when they are
  *             in a sleep/standby state. This mode is likely to be
  *             the most noisy and may not be able to handle fast load
  *             switching.
+ *             调整器运行的最有效率的，在很多情况是轻载的时候。能够被设备
+ *             使用当他们在sleep/standby状态下，这个模式是噪声最大的模式。
  *
  * NOTE: Most regulators will only support a subset of these modes. Some
  * will only just support NORMAL.
- *
+ *  大部分调整器只能支持上面中的几个，有些只能支持normal
  * These modes can be OR'ed together to make up a mask of valid register modes.
  */
 
-#define REGULATOR_MODE_FAST			0x1
-#define REGULATOR_MODE_NORMAL			0x2
-#define REGULATOR_MODE_IDLE			0x4
-#define REGULATOR_MODE_STANDBY			0x8
+#define REGULATOR_MODE_FAST			0x1   // 快速切换
+#define REGULATOR_MODE_NORMAL			0x2  // 标准
+#define REGULATOR_MODE_IDLE			0x4  // 空闲
+#define REGULATOR_MODE_STANDBY			0x8  // 休眠
 
 /*
  * Regulator notifier events.

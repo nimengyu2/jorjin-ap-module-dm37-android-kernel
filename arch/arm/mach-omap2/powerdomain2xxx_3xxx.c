@@ -41,6 +41,9 @@ static int omap2_pwrdm_read_next_pwrst(struct powerdomain *pwrdm)
 					     OMAP_POWERSTATE_MASK);
 }
 
+// 仅仅用于omap3  这里对应操作的是powerdomains_omap3xxx数组中额参数
+// 例如 	&core_3xxx_pre_es3_1_pwrdm,   // .prcm_offs	  = CORE_MOD,
+// #define OMAP2_PM_PWSTST					0x00e4
 static int omap2_pwrdm_read_pwrst(struct powerdomain *pwrdm)
 {
 	return omap2_prm_read_mod_bits_shift(pwrdm->prcm_offs,
@@ -133,10 +136,19 @@ static int omap2_pwrdm_wait_transition(struct powerdomain *pwrdm)
 }
 
 /* Applicable only for OMAP3. Not supported on OMAP2 */
+// 仅仅用于omap3  这里对应操作的是powerdomains_omap3xxx数组中额参数
+// 例如 	&core_3xxx_pre_es3_1_pwrdm,   // .prcm_offs	  = CORE_MOD,
+// 	&core_3xxx_es3_1_pwrdm,
+// 1:0 LASTPOWERSTATEENTERED Lastpowerstateentered
+//0x0:COREdomainwaspreviouslyOFF
+//0x1:COREdomainwaspreviouslyin RETENTION
+//0x2:COREdomainwaspreviouslyINACTIVE
+//0x3:COREdomainwaspreviouslyON
 static int omap3_pwrdm_read_prev_pwrst(struct powerdomain *pwrdm)
 {
-	return omap2_prm_read_mod_bits_shift(pwrdm->prcm_offs,
-					     OMAP3430_PM_PREPWSTST,
+	return omap2_prm_read_mod_bits_shift(pwrdm->prcm_offs,  
+					     OMAP3430_PM_PREPWSTST,  //PM_PREPWSTST_CORE RW 32 0x000000E8
+					     // #define OMAP3430_LASTPOWERSTATEENTERED_MASK		(0x3 << 0)
 					     OMAP3430_LASTPOWERSTATEENTERED_MASK);
 }
 
@@ -280,9 +292,9 @@ struct pwrdm_ops omap2_pwrdm_operations = {
 
 struct pwrdm_ops omap3_pwrdm_operations = {
 	.pwrdm_set_next_pwrst	= omap2_pwrdm_set_next_pwrst,
-	.pwrdm_read_next_pwrst	= omap2_pwrdm_read_next_pwrst,
-	.pwrdm_read_pwrst	= omap2_pwrdm_read_pwrst,
-	.pwrdm_read_prev_pwrst	= omap3_pwrdm_read_prev_pwrst,
+	.pwrdm_read_next_pwrst	= omap2_pwrdm_read_next_pwrst,  // 读取下一个pwrst
+	.pwrdm_read_pwrst	= omap2_pwrdm_read_pwrst, // 读取当前的pwrst
+	.pwrdm_read_prev_pwrst	= omap3_pwrdm_read_prev_pwrst,  // 读取上一个的pwrst
 	.pwrdm_set_logic_retst	= omap2_pwrdm_set_logic_retst,
 	.pwrdm_read_logic_pwrst	= omap3_pwrdm_read_logic_pwrst,
 	.pwrdm_read_logic_retst	= omap3_pwrdm_read_logic_retst,

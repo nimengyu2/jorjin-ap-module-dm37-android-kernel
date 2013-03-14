@@ -81,9 +81,11 @@ static int suspend_test(int level)
 
 /**
  *	suspend_prepare - Do prep work before entering low-power state.
- *
+ *  挂起准备，做一些准备工作，在进入低功耗状态钱
  *	This is common code that is called for each state that we're entering.
  *	Run suspend notifiers, allocate a console and stop all processes.
+ *  这里是一些同样的代码，在调用进入每个状态前。运行挂起通知，分配终端
+ *  停止所有的处理器
  */
 static int suspend_prepare(void)
 {
@@ -92,12 +94,15 @@ static int suspend_prepare(void)
 	if (!suspend_ops || !suspend_ops->enter)
 		return -EPERM;
 
+	// 准备挂起终端
 	pm_prepare_console();
 
+	// 挂起通知
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
 		goto Finish;
 
+	// 
 	error = usermodehelper_disable();
 	if (error)
 		goto Finish;
@@ -136,13 +141,13 @@ static int suspend_enter(suspend_state_t state)
 {
 	int error;
 
-	if (suspend_ops->prepare) {
-		error = suspend_ops->prepare();
+	if (suspend_ops->prepare) {  
+		error = suspend_ops->prepare();  // 这个函数通常会作一些准备工作来让板机进入休眠
 		if (error)
 			goto Platform_finish;
 	}
 
-	error = dpm_suspend_noirq(PMSG_SUSPEND);
+	error = dpm_suspend_noirq(PMSG_SUSPEND);  // 关闭中断
 	if (error) {
 		printk(KERN_ERR "PM: Some devices failed to power down\n");
 		goto Platform_finish;
@@ -167,7 +172,8 @@ static int suspend_enter(suspend_state_t state)
 	error = sysdev_suspend(PMSG_SUSPEND);
 	if (!error) {
 		if (!suspend_test(TEST_CORE) && pm_check_wakeup_events()) {
-			error = suspend_ops->enter(state);
+			// suspend_ops->enter函数即omap_pm_ops中的函数omap2_pm_enter
+			error = suspend_ops->enter(state);  // 这里是真正的休眠  休眠在这里直到恢复
 			events_check_enabled = false;
 		}
 		sysdev_resume();
@@ -194,7 +200,7 @@ static int suspend_enter(suspend_state_t state)
 
 /**
  *	suspend_devices_and_enter - suspend devices and enter the desired system
- *				    sleep state.
+ *				    sleep state.  挂起设备进入需要的状态
  *	@state:		  state to enter
  */
 int suspend_devices_and_enter(suspend_state_t state)
@@ -205,13 +211,17 @@ int suspend_devices_and_enter(suspend_state_t state)
 		return -ENOSYS;
 
 	if (suspend_ops->begin) {
-		error = suspend_ops->begin(state);
+		// suspend_ops 是板级的电源管理操作, 通常注册在文件 arch/xxx/mach-xxx/pm.c 中.
+		// 这里是pm34xx.c文件中的omap_pm_ops结构体
+		error = suspend_ops->begin(state);   
 		if (error)
 			goto Close;
 	}
-	suspend_console();
+	suspend_console();  // 挂起终端
 	pm_restrict_gfp_mask();
-	suspend_test_start();
+	suspend_test_start();  // 挂起测试
+	// 关键是这里 driver/base/power/main.c 中的 device_suspend()->dpm_suspend() 
+	// 这里依次调用各个驱动中的suspend函数
 	error = dpm_suspend_start(PMSG_SUSPEND);
 	if (error) {
 		printk(KERN_ERR "PM: Some devices failed to suspend\n");
@@ -221,7 +231,7 @@ int suspend_devices_and_enter(suspend_state_t state)
 	if (suspend_test(TEST_DEVICES))
 		goto Recover_platform;
 
-	suspend_enter(state);
+	suspend_enter(state);  // 进入挂起
 
  Resume_devices:
 	suspend_test_start();
@@ -254,60 +264,64 @@ static void suspend_finish(void)
 	pm_restore_console();
 }
 
-/**
+/** 做同样的事情，进入低功耗状态
  *	enter_state - Do common work of entering low-power state.
  *	@state:		pm_state structure for state we're entering.
- *
+ *              我们需要进入的状态
  *	Make sure we're the only ones trying to enter a sleep state. Fail
  *	if someone has beat us to it, since we don't want anything weird to
  *	happen when we wake up.
+ *  确保我们是唯一一个尝试进入休眠状态的，如果有人打击我们，则会失败
+ *  因为我们不会尝试做任何东西，在唤醒的时候
  *	Then, do the setup for suspend, enter the state, and cleaup (after
  *	we've woken up).
+ *  然后，做一步骤的挂起，进入状态，然后清除，在我们唤醒了之后
  */
 int enter_state(suspend_state_t state)
 {
 	int error;
 
-	if (!valid_state(state))
+	if (!valid_state(state))  // 判断状态是否有效
 		return -ENODEV;
 
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
-	sys_sync();
+	sys_sync();  // 同步文件系统
 	printk("done.\n");
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
-	error = suspend_prepare();
+	error = suspend_prepare();  // 挂起准备  如果出错则跳到Unlock
 	if (error)
 		goto Unlock;
 
-	if (suspend_test(TEST_FREEZER))
+	if (suspend_test(TEST_FREEZER))  // 挂起测试
 		goto Finish;
 
-	pr_debug("PM: Entering %s sleep\n", pm_states[state]);
-	error = suspend_devices_and_enter(state);
+	pr_debug("PM: Entering %s sleep\n", pm_states[state]);  // 打印输出 根据参数进入休眠
+	error = suspend_devices_and_enter(state);  //挂起设备并且进入  关键在这里
 
  Finish:
-	pr_debug("PM: Finishing wakeup.\n");
+	pr_debug("PM: Finishing wakeup.\n");  // 完成唤醒 ，表示在之前的代码中sleep
 	suspend_finish();
  Unlock:
 	mutex_unlock(&pm_mutex);
 	return error;
 }
 
-/**
+/** 外部可见函数用于挂起系统
  *	pm_suspend - Externally visible function for suspending system.
  *	@state:		Enumerated value of state to enter.
- *
+ *              需要进入的状态，使用的是枚举值  
  *	Determine whether or not value is within range, get state
  *	structure, and enter (above).
  */
 int pm_suspend(suspend_state_t state)
 {
+	// 判断state有效  这里只有两种挂起 PM_SUSPEND_STANDBY和PM_SUSPEND_MEM
 	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
-		return enter_state(state);
+		return enter_state(state);  // 进入状态
 	return -EINVAL;
 }
 EXPORT_SYMBOL(pm_suspend);

@@ -182,7 +182,7 @@ static int _pwrdm_post_transition_cb(struct powerdomain *pwrdm, void *unused)
  * pwrdm_init - set up the powerdomain layer
  * @pwrdm_list: array of struct powerdomain pointers to register
  * @custom_funcs: func pointers for arch specfic implementations
- *
+ *                函数指针，针对每个平台指定的制定者
  * Loop through the array of powerdomains @pwrdm_list, registering all
  * that are available on the current CPU. If pwrdm_list is supplied
  * and not null, all of the referenced powerdomains will be
@@ -196,7 +196,7 @@ void pwrdm_init(struct powerdomain **pwrdm_list, struct pwrdm_ops *custom_funcs)
 	if (!custom_funcs)
 		WARN(1, "powerdomain: No custom pwrdm functions registered\n");
 	else
-		arch_pwrdm = custom_funcs;
+		arch_pwrdm = custom_funcs;   // 这里时omap3_pwrdm_operations
 
 	if (pwrdm_list) {
 		for (p = pwrdm_list; *p; p++)
@@ -412,10 +412,10 @@ int pwrdm_set_next_pwrst(struct powerdomain *pwrdm, u8 pwrst)
 	return ret;
 }
 
-/**
+/**  到下一个powerdomain电源状态
  * pwrdm_read_next_pwrst - get next powerdomain power state
  * @pwrdm: struct powerdomain * to get power state
- *
+ *         要获取的电源状态
  * Return the powerdomain @pwrdm's next power state.  Returns -EINVAL
  * if the powerdomain pointer is null or returns the next power state
  * upon success.
@@ -469,6 +469,7 @@ int pwrdm_read_prev_pwrst(struct powerdomain *pwrdm)
 	if (!pwrdm)
 		return -EINVAL;
 
+	// 这里的arch_pwrdm是  omap3_pwrdm_operations
 	if (arch_pwrdm && arch_pwrdm->pwrdm_read_prev_pwrst)
 		ret = arch_pwrdm->pwrdm_read_prev_pwrst(pwrdm);
 

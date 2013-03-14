@@ -153,6 +153,7 @@ void __init omap2_set_globals_prcm(struct omap_globals *omap2_globals)
 {
 	/* Static mapping, never released */
 	if (omap2_globals->prm) {
+		// prm»ù´¡Öµ  .prm	= OMAP3430_PRM_BASE, 
 		prm_base = ioremap(omap2_globals->prm, SZ_8K);
 		WARN_ON(!prm_base);
 	}

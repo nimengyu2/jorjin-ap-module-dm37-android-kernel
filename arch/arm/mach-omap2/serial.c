@@ -384,6 +384,7 @@ static void omap_uart_idle_timer(unsigned long data)
 	omap_uart_allow_sleep(uart);
 }
 
+// ´®¿Ú¿ÕÏÐ
 void omap_uart_prepare_idle(int num)
 {
 	struct omap_uart_state *uart;
@@ -430,7 +431,7 @@ void omap_uart_prepare_suspend(void)
 	struct omap_uart_state *uart;
 
 	list_for_each_entry(uart, &uart_list, node) {
-		omap_uart_allow_sleep(uart);
+		omap_uart_allow_sleep(uart);   // ÐÝÃß´®¿Ú
 	}
 }
 

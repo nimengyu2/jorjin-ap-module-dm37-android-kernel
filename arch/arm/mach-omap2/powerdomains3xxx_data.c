@@ -83,7 +83,8 @@ static struct powerdomain mpu_3xxx_pwrdm = {
  */
 static struct powerdomain core_3xxx_pre_es3_1_pwrdm = {
 	.name		  = "core_pwrdm",
-	.prcm_offs	  = CORE_MOD,
+	// 这个是基于0x48306800的
+	.prcm_offs	  = CORE_MOD,  // #define CORE_MOD					0x200   // core地址
 	.omap_chip	  = OMAP_CHIP_INIT(CHIP_IS_OMAP3430ES1 |
 					   CHIP_IS_OMAP3430ES2 |
 					   CHIP_IS_OMAP3430ES3_0 |
@@ -261,6 +262,7 @@ static struct powerdomain dpll5_pwrdm = {
 #endif
 
 /* As powerdomains are added or removed above, this list must also be changed */
+// omap3的powerdomains
 static struct powerdomain *powerdomains_omap3xxx[] __initdata = {
 
 #ifdef CONFIG_ARCH_OMAP3
@@ -269,7 +271,7 @@ static struct powerdomain *powerdomains_omap3xxx[] __initdata = {
 	&iva2_pwrdm,
 	&mpu_3xxx_pwrdm,
 	&neon_pwrdm,
-	&core_3xxx_pre_es3_1_pwrdm,
+	&core_3xxx_pre_es3_1_pwrdm,   // 不知道是哪一个错误了
 	&core_3xxx_es3_1_pwrdm,
 	&cam_pwrdm,
 	&dss_pwrdm,
@@ -309,6 +311,7 @@ static struct powerdomain *powerdomains_ti81xx[] __initdata = {
 
 void __init omap3xxx_powerdomains_init(void)
 {
+	// omap3_pwrdm_operations  平台指定者
 	pwrdm_init(powerdomains_omap3xxx, &omap3_pwrdm_operations);
 }
 
