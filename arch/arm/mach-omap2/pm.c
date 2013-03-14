@@ -27,6 +27,7 @@
 #include "cm2xxx_3xxx.h"
 #include "clock.h"
 #include "pm.h"
+#include <linux/lierda_debug.h>
 
 static struct omap_device_pm_latency *pm_lats;
 
@@ -247,6 +248,8 @@ int omap_set_pwrdm_state(struct powerdomain *pwrdm, u32 state)
 	}
 
 	ret = pwrdm_set_next_pwrst(pwrdm, state);
+	lsd_pwr_dbg(LSD_DBG,"pwrdm_set_next_pwrst:pwrdm=%s,state=%d,ret=%d\n",
+					pwrdm->name,state,ret);
 	if (ret) {
 		printk(KERN_ERR "Unable to set state of powerdomain: %s\n",
 		       pwrdm->name);

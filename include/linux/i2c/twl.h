@@ -760,6 +760,10 @@ int twl4030_sih_setup(int module);
 #define TWL4030_VAUX2_DEDICATED		0x1E
 #define TWL4030_VAUX3_DEV_GRP		0x1F
 #define TWL4030_VAUX3_DEDICATED		0x22
+#define TWL4030_VAUX4_DEV_GRP		0x23
+#define TWL4030_VAUX4_DEDICATED		0x26
+#define TWL4030_VMMC2_DEV_GRP		0x2B
+#define TWL4030_VMMC2_DEDICATED		0x2E
 
 static inline int twl4030charger_usb_en(int enable) { return 0; }
 

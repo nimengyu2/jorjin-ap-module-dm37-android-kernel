@@ -51,6 +51,10 @@
 #include "sdrc.h"
 #include "control.h"
 
+#include <linux/lierda_debug.h>
+
+unsigned char u8_omap_sram_idle_flag = 0;
+
 #ifdef CONFIG_SUSPEND
 static suspend_state_t suspend_state = PM_SUSPEND_ON;
 static inline bool is_suspending(void)
@@ -359,9 +363,13 @@ void omap_sram_idle(void)
 	int core_prev_state, per_prev_state;
 	u32 sdrc_pwr = 0;
 
+
+	if(u8_omap_sram_idle_flag) 
+		lsd_pwr_dbg(LSD_DBG,"enter this func\n");
 	if (!_omap_sram_idle)
 		return;
-
+	if(u8_omap_sram_idle_flag) 
+		lsd_pwr_dbg(LSD_DBG,"_omap_sram_idle is valid\n");
 	pwrdm_clear_all_prev_pwrst(mpu_pwrdm);
 	pwrdm_clear_all_prev_pwrst(neon_pwrdm);
 	pwrdm_clear_all_prev_pwrst(core_pwrdm);
@@ -391,9 +399,13 @@ void omap_sram_idle(void)
 	/* Enable IO-PAD and IO-CHAIN wakeups */
 	per_next_state = pwrdm_read_next_pwrst(per_pwrdm);
 	core_next_state = pwrdm_read_next_pwrst(core_pwrdm);
+	if(u8_omap_sram_idle_flag) 
+		lsd_pwr_dbg(LSD_DBG,"core_next_state=pwrdm_read_next_pwrst(core_pwrdm)=%d\n",core_next_state);
 	if (omap3_has_io_wakeup() &&
 	    (per_next_state < PWRDM_POWER_ON ||
 	     core_next_state < PWRDM_POWER_ON)) {
+		if(u8_omap_sram_idle_flag) 
+			lsd_pwr_dbg(LSD_DBG,"omap3_has_io_wakeup\n");
 		omap2_prm_set_mod_reg_bits(OMAP3430_EN_IO_MASK, WKUP_MOD, PM_WKEN);
 		omap3_enable_io_chain();
 	}
@@ -402,8 +414,9 @@ void omap_sram_idle(void)
 	if (!is_suspending())
 		if (per_next_state < PWRDM_POWER_ON ||
 		    core_next_state < PWRDM_POWER_ON)
-			if (try_acquire_console_sem())
+			if (try_acquire_console_sem())		
 				goto console_still_active;
+
 
 	/* PER */
 	if (per_next_state < PWRDM_POWER_ON) {
@@ -417,8 +430,12 @@ void omap_sram_idle(void)
 
 	/* CORE */
 	if (core_next_state < PWRDM_POWER_ON) {
+		if(u8_omap_sram_idle_flag) 
+			lsd_pwr_dbg(LSD_DBG,"omap_uart_prepare_idle 0 1\n");
 		omap_uart_prepare_idle(0);
-		omap_uart_prepare_idle(1);
+		omap_uart_prepare_idle(1);	
+		//omap_uart_prepare_idle(2);
+		//omap_uart_prepare_idle(3);
 		if (core_next_state == PWRDM_POWER_OFF) {
 			omap3_core_save_context();
 			omap3_cm_save_context();
@@ -426,6 +443,8 @@ void omap_sram_idle(void)
 	}
 
 	omap3_intc_prepare_idle();
+	if(u8_omap_sram_idle_flag) 
+		lsd_pwr_dbg(LSD_DBG,"after omap3_intc_prepare_idle\n");
 
 	/*
 	* On EMU/HS devices ROM code restores a SRDC value
@@ -449,23 +468,34 @@ void omap_sram_idle(void)
 	_omap_sram_idle(omap3_arm_context, save_state);
 	cpu_init();
 
+	//if(u8_omap_sram_idle_flag) 
+	//	lsd_pwr_dbg(LSD_DBG,"after cpu_init()\n");
+
 	if (is_suspending())
 		pm_dbg_regset_save(2);
 
+	//if(u8_omap_sram_idle_flag) 
+	//	lsd_pwr_dbg(LSD_DBG,"addr aaaaa\n");
 	/* Restore normal SDRC POWER settings */
 	if (omap_rev() >= OMAP3430_REV_ES3_0 &&
 	    omap_type() != OMAP2_DEVICE_TYPE_GP &&
 	    core_next_state == PWRDM_POWER_OFF)
 		sdrc_write_reg(sdrc_pwr, SDRC_POWER);
 
+	//if(u8_omap_sram_idle_flag) 
+	//	lsd_pwr_dbg(LSD_DBG,"addr bbbbb\n");
 	/* Restore table entry modified during MMU restoration */
 	if (pwrdm_read_prev_pwrst(mpu_pwrdm) == PWRDM_POWER_OFF)
 		restore_table_entry();
 
+	//if(u8_omap_sram_idle_flag) 
+	//	lsd_pwr_dbg(LSD_DBG,"addr ccccc\n");
 	/* CORE */
 	if (core_next_state < PWRDM_POWER_ON) {
 		core_prev_state = pwrdm_read_prev_pwrst(core_pwrdm);
 		if (core_prev_state == PWRDM_POWER_OFF) {
+			//if(u8_omap_sram_idle_flag) 
+			//	lsd_pwr_dbg(LSD_DBG,"restore_context\n");
 			omap3_core_restore_context();
 			omap3_cm_restore_context();
 			omap3_sram_restore_context();
@@ -481,6 +511,9 @@ void omap_sram_idle(void)
 		omap_uart_resume_idle(1);
 	}
 	omap3_intc_resume_idle();
+
+	//if(u8_omap_sram_idle_flag) 
+	//		lsd_pwr_dbg(LSD_DBG,"addr ddddd\n");
 
 	/* PER */
 	if (per_next_state < PWRDM_POWER_ON) {
@@ -549,12 +582,14 @@ out:
 	local_irq_enable();
 }
 
+
 #ifdef CONFIG_SUSPEND
 static int omap3_pm_suspend(void)
 {
 	struct power_state *pwrst;
 	int state, ret = 0;
 
+	lsd_pwr_dbg(LSD_DBG,"enter func=%s\n",__FUNCTION__);
 	if (wakeup_timer_seconds || wakeup_timer_milliseconds)
 		omap2_pm_wakeup_on_timer(wakeup_timer_seconds,
 					 wakeup_timer_milliseconds);
@@ -571,14 +606,20 @@ static int omap3_pm_suspend(void)
 	}
 
 	omap_uart_prepare_suspend();
+	lsd_pwr_dbg(LSD_DBG,"after omap_uart_prepare_suspend\n");
 	omap3_intc_suspend();
-
-	omap_sram_idle();
+	lsd_pwr_dbg(LSD_DBG,"after omap3_intc_suspend\n");
+	u8_omap_sram_idle_flag = 1;
+	omap_sram_idle();   // sleep stop this function
+	u8_omap_sram_idle_flag = 0;
+	lsd_pwr_dbg(LSD_DBG,"after omap_sram_idle\n");
 
 restore:
+	lsd_pwr_dbg(LSD_DBG,"enter omap3_pm_suspend:restore\n");
 	/* Restore next_pwrsts */
 	list_for_each_entry(pwrst, &pwrst_list, node) {
 		state = pwrdm_read_prev_pwrst(pwrst->pwrdm);
+		lsd_pwr_dbg(LSD_DBG,"Powerdomain (%s) prev_state=%d,next_state=%d\n",pwrst->pwrdm->name,state,pwrst->next_state);
 		if (state > pwrst->next_state) {
 			printk(KERN_INFO "Powerdomain (%s) didn't enter "
 			       "target state %d\n",

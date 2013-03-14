@@ -46,6 +46,8 @@
 #include "prm-regbits-34xx.h"
 #include "control.h"
 #include "mux.h"
+#include <linux/lierda_debug.h>
+
 
 #define UART_OMAP_NO_EMPTY_FIFO_READ_IP_REV	0x52
 #define UART_OMAP_WER		0x17	/* Wake-up enable register */
@@ -390,10 +392,14 @@ void omap_uart_prepare_idle(int num)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num && uart->can_sleep) {
+			#if 0
 			if (device_may_wakeup(&uart->pdev->dev))
 				omap_uart_enable_wakeup(uart);
 			else
 				omap_uart_disable_wakeup(uart);
+			#endif
+			omap_uart_disable_wakeup(uart);
+			//lsd_pwr_dbg(LSD_DBG,"func=%s,uart num=%d\n",__FUNCTION__,num);
 
 			omap_uart_disable_clocks(uart);
 			return;

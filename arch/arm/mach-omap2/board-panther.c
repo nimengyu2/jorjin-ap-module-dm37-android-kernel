@@ -1096,11 +1096,17 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = -EINVAL,
 	.reset_gpio_port[1]  = 39,
+	//.reset_gpio_port[1]  = 18,
 	.reset_gpio_port[2]  = -EINVAL
 };
 
 #ifdef CONFIG_OMAP_MUX
 static struct omap_board_mux board_mux[] __initdata = {
+	OMAP3_MUX(SYS_NIRQ, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP |
+                OMAP_PIN_OFF_INPUT_PULLUP | OMAP_PIN_OFF_OUTPUT_LOW |
+                OMAP_PIN_OFF_WAKEUPENABLE),
+
+
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	/*meikee add for debug*/
 	OMAP3_MUX(DSS_DATA3, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLDOWN),
@@ -1130,6 +1136,11 @@ static struct omap_board_mux board_mux[] __initdata = {
             OMAP_PIN_OFF_WAKEUPENABLE),
       
         OMAP3_MUX(UART2_RX, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(UART2_CTS, OMAP_MUX_MODE0 | OMAP_PIN_INPUT),
+	OMAP3_MUX(UART2_RTS, OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT),
+	OMAP3_MUX(UART2_TX, OMAP_MUX_MODE0 | OMAP_PIN_OUTPUT),
+
+	OMAP3_MUX(MCBSP3_FSX, OMAP_MUX_MODE4|OMAP_PIN_OUTPUT),
         
         OMAP3_MUX(CSI2_DX0, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
 
@@ -1385,9 +1396,9 @@ static void usb_power_init(void)
 		printk(KERN_ERR "can't control usb hub reset\n");
 	gpio_direction_output(USB_HUB_RET_GPIO, 0);
 
-	if (gpio_request(USB_PHY_NRET_GPIO, "usb phy nreset") < 0)
-		printk(KERN_ERR "can't control usb phy nreset\n");
-	gpio_direction_output(USB_PHY_NRET_GPIO, 1);
+	//if (gpio_request(USB_PHY_NRET_GPIO, "usb phy nreset") < 0)
+	//	printk(KERN_ERR "can't control usb phy nreset\n");
+	//gpio_direction_output(USB_PHY_NRET_GPIO, 1);
 }
 /* hood add end */
 
@@ -1429,6 +1440,8 @@ static void __init panther_init(void)
 	//else
 	//	printk("AAAA:can request pin 23\n");
 	//gpio_direction_output(23, 1);
+
+	omap_mux_init_gpio(18, OMAP_PIN_OUTPUT);
 	
 
 	/* Ensure SDRC pins are mux'd for self-refresh */

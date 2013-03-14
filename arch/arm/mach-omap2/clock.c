@@ -154,6 +154,12 @@ void omap2_clk_dflt_find_idlest(struct clk *clk, void __iomem **idlest_reg,
 
 	r = (((__force u32)clk->enable_reg & ~0xf0) | 0x20);
 	*idlest_reg = (__force void __iomem *)r;
+
+	/* hood add for debug */
+        if( r == 0xfa004a20 )
+                pr_err("---- %s->idlest_reg: %x ----\n", clk->name, __raw_readl(*idlest_reg));
+        /* hood add end */
+
 	*idlest_bit = clk->enable_bit;
 
 	/*

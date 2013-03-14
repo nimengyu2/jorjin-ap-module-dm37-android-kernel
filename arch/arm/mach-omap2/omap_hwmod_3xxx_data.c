@@ -586,6 +586,7 @@ static struct omap_hwmod omap3xxx_uart2_hwmod = {
 	.slaves		= omap3xxx_uart2_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap3xxx_uart2_slaves),
 	.class		= &uart_class,
+	 .flags               = HWMOD_SWSUP_SIDLE, 
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3430),
 };
 
@@ -660,6 +661,7 @@ static struct omap_hwmod omap3xxx_uart4_hwmod = {
 	.slaves		= omap3xxx_uart4_slaves,
 	.slaves_cnt	= ARRAY_SIZE(omap3xxx_uart4_slaves),
 	.class		= &uart_class,
+	.flags               = HWMOD_SWSUP_SIDLE, 
 	.omap_chip	= OMAP_CHIP_INIT(CHIP_IS_OMAP3630ES1),
 };
 

@@ -19,6 +19,7 @@
  * published by the Free Software Foundation.
  */
 
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/clk.h>
@@ -37,8 +38,10 @@
 #include "cm2xxx_3xxx.h"
 #include "prm2xxx_3xxx.h"
 #include "pm.h"
+#include <linux/lierda_debug.h>
 
-int omap2_pm_debug;
+// nmy add
+int omap2_pm_debug = 1;
 u32 enable_off_mode;
 u32 sleep_while_idle;
 u32 wakeup_timer_seconds;
@@ -69,6 +72,8 @@ void omap2_pm_dump(int mode, int resume, unsigned int us)
 	} regs[32];
 	int reg_count = 0, i;
 	const char *s1 = NULL, *s2 = NULL;
+
+	lsd_pwr_dbg(LSD_DBG,"enter this func\n");
 
 	if (!resume) {
 #if 0

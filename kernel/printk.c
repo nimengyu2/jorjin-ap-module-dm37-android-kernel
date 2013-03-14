@@ -39,6 +39,8 @@
 #include <linux/syslog.h>
 #include <linux/cpu.h>
 #include <linux/notifier.h>
+#include <linux/gpio.h>
+#include <linux/i2c/twl.h>
 
 #include <asm/uaccess.h>
 
@@ -1051,6 +1053,55 @@ void suspend_console(void)
 	acquire_console_sem();
 	console_suspended = 1;
 	up(&console_sem);
+
+#if 0
+	//add meikee for debug
+	printk("gpio_23 down.....\n");
+	#define AUDIO_EN_GPIO		23
+	gpio_request(AUDIO_EN_GPIO, "audio enable");
+	gpio_direction_output(AUDIO_EN_GPIO, 0);
+
+	//printk("gpio_17 down.....\n");
+	#define RF_POWERA_EN 	17
+	gpio_request(RF_POWERA_EN, "gps power enable");
+	gpio_direction_output(RF_POWERA_EN, 0);
+
+	//printk("gpio_18 down.....\n");
+	#define USB_PHY_NRET_GPIO	18
+	//gpio_request(USB_PHY_NRET_GPIO, "usb phy nreset");
+	//gpio_direction_output(USB_PHY_NRET_GPIO, 0);
+
+	//printk("gpio_13 down.....\n");
+	#define USB_PHY_EN_GPIO 	13
+	//gpio_request(USB_PHY_EN_GPIO, "usb phy enable");
+	//gpio_direction_output(USB_PHY_EN_GPIO, 0);
+
+	//printk("gpio_20 down.....\n");
+	#define USB_HUB_EN_GPIO 	20
+	//gpio_request(USB_HUB_EN_GPIO, "usb hub enable");
+	//gpio_direction_output(USB_HUB_EN_GPIO, 0);
+
+	//printk("vaux3 disabled.....\n");
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX3_DEV_GRP);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX3_DEDICATED);
+	//printk("vaux2 disabled.....\n");
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX2_DEV_GRP);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX2_DEDICATED);
+	//printk("vmmc2 disabled.....\n");
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VMMC2_DEV_GRP);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VMMC2_DEDICATED);
+	printk("vaux4 disabled.....\n");
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX4_DEV_GRP);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VAUX4_DEDICATED);
+#endif
 }
 
 void resume_console(void)
