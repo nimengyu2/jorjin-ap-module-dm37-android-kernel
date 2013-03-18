@@ -1095,8 +1095,8 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.phy_reset  = true,
 	.reset_gpio_port[0]  = -EINVAL,
-	.reset_gpio_port[1]  = 39,
-	//.reset_gpio_port[1]  = 18,
+	//.reset_gpio_port[1]  = 39,
+	.reset_gpio_port[1]  = 18,
 	.reset_gpio_port[2]  = -EINVAL
 };
 

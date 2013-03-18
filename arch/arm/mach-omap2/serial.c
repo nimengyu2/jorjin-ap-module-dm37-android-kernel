@@ -392,13 +392,13 @@ void omap_uart_prepare_idle(int num)
 
 	list_for_each_entry(uart, &uart_list, node) {
 		if (num == uart->num && uart->can_sleep) {
-			#if 0
+			#if 1
 			if (device_may_wakeup(&uart->pdev->dev))
 				omap_uart_enable_wakeup(uart);
 			else
 				omap_uart_disable_wakeup(uart);
 			#endif
-			omap_uart_disable_wakeup(uart);
+			//omap_uart_disable_wakeup(uart);
 			//lsd_pwr_dbg(LSD_DBG,"func=%s,uart num=%d\n",__FUNCTION__,num);
 
 			omap_uart_disable_clocks(uart);
