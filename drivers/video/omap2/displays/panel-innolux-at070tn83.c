@@ -27,9 +27,9 @@ static struct omap_video_timings at070tn83_panel_timings = {
 	/* 7 inch LCD */
 	.x_res		= 800,
 	.y_res		= 480,
-	.pixel_clock	= 36000,
-	.hfp		= 1,
+	.pixel_clock	= 36000,,
 	.hsw		= 48,
+	.hfp		= 1
 	.hbp		= 46,
 	.vfp		= 12,
 	.vsw		= 3,
@@ -38,8 +38,8 @@ static struct omap_video_timings at070tn83_panel_timings = {
 /* Topway LMT070DICFWD */
 #if 1
 	.x_res		= 800,
-	.y_res		= 480,
-	.pixel_clock	= 33000,
+	.y_res		= 600,
+	.pixel_clock	= 35000,
 	.hfp = 210, // Min: 16 Normal: 210 Max: 354
 	.hsw = 40, // Min: 1 Normal: - Max: 40
 	.hbp = 6, // (Min: 46 Normal: 46 Max: 46) - 40

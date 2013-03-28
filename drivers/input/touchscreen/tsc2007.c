@@ -184,7 +184,8 @@ static void tsc2007_work(struct work_struct *work)
 	tsc2007_read_values(ts, &tc);
 
 	rt = tsc2007_calculate_pressure(ts, &tc);
-	if (rt > MAX_12BIT) {
+	//if (rt > MAX_12BIT) {
+	if (rt > 300) {
 		/*
 		 * Sample found inconsistent by debouncing or pressure is
 		 * beyond the maximum. Don't report it to user space,
@@ -205,12 +206,34 @@ static void tsc2007_work(struct work_struct *work)
 			ts->pendown = true;
 		}
 
+
+		long a0,a1,a2,a3,a4,a5,a6;  
+		long x,y;  
+		a0 = -13732;  
+		a1 = 34;  
+		a2 = 54210868;
+		a3 = 13;  
+		a4 = -10773;  
+		a5 = 40849424;  
+		a6 = 65536;  
+
+		x=(int) tc.x;  
+		 y=(int) tc.y;  
+
+		//tc.x=(long) ((a2+(a0*x)+(a1*y))/a6);  
+		//tc.y=(long) ((a5+(a3*x)+(a4*y))/a6);    
+
+		tc.x=(long) (((a2+(a0*x)+(a1*y))/a6)*4096/800);  
+		tc.y=(long) (((a5+(a3*x)+(a4*y))/a6)*4096/600);    
+
 		input_report_abs(input, ABS_X, tc.x);
 		input_report_abs(input, ABS_Y, tc.y);
 		input_report_abs(input, ABS_PRESSURE, rt);
 
 		input_sync(input);
 
+		//printk("point(%4d,%4d), pressure (%4u)\n",  
+	   	//	tc.x, tc.y, rt); 
 		dev_dbg(&ts->client->dev, "point(%4d,%4d), pressure (%4u)\n",
 			tc.x, tc.y, rt);
 
@@ -312,7 +335,7 @@ static int __devinit tsc2007_probe(struct i2c_client *client,
 	if (pdata->init_platform_hw)
 		pdata->init_platform_hw();
 
-	err = request_irq(ts->irq, tsc2007_irq, 0,
+	err = request_irq(ts->irq, tsc2007_irq, IRQF_TRIGGER_FALLING,
 			client->dev.driver->name, ts);
 	if (err < 0) {
 		dev_err(&client->dev, "irq %d busy?\n", ts->irq);

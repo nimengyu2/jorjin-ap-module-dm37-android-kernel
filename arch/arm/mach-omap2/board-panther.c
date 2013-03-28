@@ -63,6 +63,7 @@
 
 #include <linux/interrupt.h>
 #include <linux/dm9000.h>
+#include <linux/i2c/tsc2007.h> // Modify by nmy
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -842,11 +843,90 @@ static struct i2c_board_info __initdata panther_i2c_boardinfo[] = {
 	},
 };
 
+
+//----------------------------------------------------------------------------//
+//  nmy add tsc2007 code   start  2010-12-10  14:00
+//----------------------------------------------------------------------------//
+/* * TSC 2007 Support */
+#define TSC2007_GPIO_IRQ_PIN_TMP	38
+#define TSC2007_GPIO_IRQ_PIN	162
+static int tsc2007_init_irq(void)
+{	
+		int ret = 0;        
+		//pr_warning("%s: lierda_tcs2007_init_irq %d\n", __func__, ret);
+		#if 1	
+		omap_mux_init_gpio(TSC2007_GPIO_IRQ_PIN_TMP, OMAP_PIN_INPUT_PULLUP);	
+		ret = gpio_request(TSC2007_GPIO_IRQ_PIN_TMP, "tsc2007-irq-tmp");	
+		if (ret < 0) 
+		{		
+				printk("%s: failed to TSC2007 IRQ GPIO: %d\n", __func__, ret);		
+				return ret;	
+		}	
+		else	
+		{		
+				printk("%s: ok to TSC2007 IRQ GPIO: %d\n", __func__, ret);	
+		}	
+		gpio_direction_input(TSC2007_GPIO_IRQ_PIN_TMP);	
+		omap_mux_init_gpio(TSC2007_GPIO_IRQ_PIN, OMAP_PIN_INPUT_PULLUP);	
+		ret = gpio_request(TSC2007_GPIO_IRQ_PIN, "tsc2007-irq");	
+		if (ret < 0) 
+		{		
+				printk("%s: failed to TSC2007 IRQ GPIO: %d\n", __func__, ret);		
+				return ret;	
+		}	
+		else	
+		{		
+				printk("%s: ok to TSC2007 IRQ GPIO: %d\n", __func__, ret);	
+		}	
+	  	gpio_direction_input(TSC2007_GPIO_IRQ_PIN);
+		#endif
+		
+		#if 0	
+		omap_mux_init_gpio(TSC2007_GPIO_IRQ_PIN, OMAP_PIN_OUTPUT);	
+		//omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);	
+		gpio_request(TSC2007_GPIO_IRQ_PIN, "tsc2007");	
+		gpio_direction_output(TSC2007_GPIO_IRQ_PIN,1);	
+		gpio_set_value(TSC2007_GPIO_IRQ_PIN,1);
+		#endif	
+		return ret;
+}
+
+static void tsc2007_exit_irq(void)
+{	
+		gpio_free(TSC2007_GPIO_IRQ_PIN);
+}
+
+static int tsc2007_get_irq_level(void)
+{	
+		//pr_warning("%s: lierda_tsc2007_get_irq_level %d\n", __func__, 0);	
+		//lsd_ts_dbg(LSD_DBG,"enter tsc2007_get_irq_level\n");	
+		return gpio_get_value(TSC2007_GPIO_IRQ_PIN) ? 0 : 1;
+}
+
+struct tsc2007_platform_data da850evm_tsc2007data = 
+{	
+		.model = 2007,	
+		.x_plate_ohms = 180,	
+		.get_pendown_state = tsc2007_get_irq_level,	
+		.init_platform_hw = tsc2007_init_irq,	
+		.exit_platform_hw = tsc2007_exit_irq,
+};
+//----------------------------------------------------------------------------//
+//  nmy add tsc2007 code   end  2010-12-10  14:00
+//----------------------------------------------------------------------------//
+
 static struct i2c_board_info __initdata panther_i2c_eeprom[] = {
        {
                I2C_BOARD_INFO("eeprom", 0x50),
        },
+	{	       
+		I2C_BOARD_INFO("tsc2007", 0x48),	       
+		.platform_data = &da850evm_tsc2007data,    
+		.irq = OMAP_GPIO_IRQ(TSC2007_GPIO_IRQ_PIN),    
+	},
 };
+
+
 
 static int __init panther_i2c_init(void)
 {
@@ -854,11 +934,11 @@ static int __init panther_i2c_init(void)
 			ARRAY_SIZE(panther_i2c_boardinfo));
 
 	/* Bus 2 is used for Camera/Sensor interface */
-	omap_register_i2c_bus(2, 400, NULL, 0);
-
+	omap_register_i2c_bus(2, 100, panther_i2c_eeprom, ARRAY_SIZE(panther_i2c_eeprom));
+	
 	/* Bus 3 is attached to the DVI port where devices like the pico DLP
 	 * projector don't work reliably with 400kHz */
-	omap_register_i2c_bus(3, 100, panther_i2c_eeprom, ARRAY_SIZE(panther_i2c_eeprom));
+	omap_register_i2c_bus(3, 400, NULL, 0);
 
 	return 0;
 }
@@ -885,22 +965,17 @@ static struct gpio_keys_button gpio_buttons[] = {
 //	To see the definitions of SCANCODE and KEYCODE, please refer to
 //		-- <ROWBOAT_ANDROID>/kernel/include/linux/input.h
 //		-- <ROWBOAT_ANDROID>/sdk/emulators/keymaps/qwerty.kl
-#ifdef CONFIG_TOUCHSCREEN_ADS7846
-	{
-		.code			= KEY_MENU,
-		.gpio			= 137,
-		.desc			= "s1",
-		.active_low		= true,
-		.wakeup			= 1,
-	},
+//#ifdef CONFIG_TOUCHSCREEN_ADS7846
+
 	{
 		.code			= KEY_BACK,
-		.gpio			= 138,
-		.desc			= "s2",
+		.gpio			= 157,
+		.desc			= "157",
 		.active_low		= true,
+		.type                   = EV_KEY,
 		.wakeup			= 1,
 	},
-#endif
+//#endif
 };
 
 static struct gpio_keys_platform_data gpio_key_info = {
@@ -1099,7 +1174,7 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.phy_reset  = true,
 	//.reset_gpio_port[0]  = -EINVAL,
-        .reset_gpio_port[0]  = 25,
+        .reset_gpio_port[0]  = 159,
 	//.reset_gpio_port[1]  = 39,
 	.reset_gpio_port[1]  = -EINVAL,
 	.reset_gpio_port[2]  = -EINVAL
@@ -1182,7 +1257,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 	OMAP3_MUX(CSI2_DX1,OMAP_MUX_MODE4|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(CSI2_DY1,OMAP_MUX_MODE4|OMAP_PIN_OFF_INPUT_PULLDOWN),
 
-	OMAP3_MUX(MCBSP1_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
+	OMAP3_MUX(MCBSP1_CLKX, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
 	OMAP3_MUX(MCBSP1_DX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(MCBSP4_CLKX,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
 	OMAP3_MUX(MCBSP4_DR,OMAP_MUX_MODE0|OMAP_PIN_OFF_INPUT_PULLDOWN),
@@ -1225,9 +1300,10 @@ static void __init panther_init(void)
 
 	omap_mux_init_gpio(25, OMAP_PIN_OUTPUT);
 
-	omap_mux_init_gpio(29, OMAP_PIN_OUTPUT);
-	gpio_request(29, "audio_en");
-	gpio_direction_output(29, 1);
+	// 10.4inch demo for audio en
+	omap_mux_init_gpio(167, OMAP_PIN_OUTPUT);
+	gpio_request(167, "audio_en");
+	gpio_direction_output(167, 1);
 
 	omap_mux_init_gpio(24, OMAP_PIN_OUTPUT);
 	gpio_request(24, "power");
@@ -1236,6 +1312,13 @@ static void __init panther_init(void)
 	omap_mux_init_gpio(172, OMAP_PIN_OUTPUT);
 	gpio_request(172, "power2");
 	gpio_direction_output(172, 1);
+
+	// 10.4inch demo for usb phy rst
+	omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
+
+	omap_mux_init_gpio(157, OMAP_PIN_INPUT);
+	omap_mux_init_gpio(158, OMAP_PIN_INPUT);
+	omap_mux_init_gpio(149, OMAP_PIN_INPUT);
 
 
 	usb_musb_init(&musb_board_data);

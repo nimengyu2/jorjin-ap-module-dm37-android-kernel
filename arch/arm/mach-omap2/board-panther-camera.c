@@ -102,7 +102,7 @@ static int panther_mt9v113_s_power(struct v4l2_subdev *subdev, int on)
 }
 #endif
 #ifdef CONFIG_VIDEO_OV5640
-#define POWER_DOWN_GPIO 167
+#define POWER_DOWN_GPIO 29
 static int panther_ov5640_s_power(struct v4l2_subdev *subdev, int on)
 {
 	struct isp_device *isp = v4l2_dev_to_isp_device(subdev->v4l2_dev);
@@ -286,7 +286,7 @@ static struct mt9t111_platform_data panther_mt9t111_platform_data = {
 };
 #endif
 
-#define CAMERA_I2C_BUS_NUM		2
+#define CAMERA_I2C_BUS_NUM		3
 
 #ifdef CONFIG_VIDEO_MT9V113
 static struct i2c_board_info panther_mt9v113_i2c_devices[] = {
