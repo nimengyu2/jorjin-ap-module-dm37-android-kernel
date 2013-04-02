@@ -22,6 +22,7 @@
 #define SUPPORT_SYSRQ
 #endif
 
+#define DEBUG
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/ioport.h>

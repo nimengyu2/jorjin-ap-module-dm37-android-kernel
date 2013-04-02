@@ -64,6 +64,7 @@
 #include <linux/interrupt.h>
 #include <linux/dm9000.h>
 #include <linux/i2c/tsc2007.h> // Modify by nmy
+#include <plat/gpmc-16c554.h>
 
 #include "mux.h"
 #include "hsmmc.h"
@@ -1130,6 +1131,7 @@ static struct platform_device *panther_devices[] __initdata = {
     &btwilink_device,
 #endif
 	&omap3sbc8100_plus_dm9000_device,
+	&st16c554_device,
 };
 
 static void __init panther_flash_init(void)
@@ -1287,6 +1289,15 @@ static struct omap_musb_board_data musb_board_data = {
 	.power			= 100,
 };
 
+
+// nmy add for st16c554
+static struct omap_16c554_platform_data board_16c554_data = {
+	.cs		= 3,
+	//.gpio_irq	= 149,
+	//.flags		= GPMC_MUX_ADD_DATA | IORESOURCE_IRQ_LOWLEVEL,
+	.flags		= IORESOURCE_IRQ_LOWLEVEL,
+};
+
 static void __init panther_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBP);
@@ -1316,14 +1327,28 @@ static void __init panther_init(void)
 	// 10.4inch demo for usb phy rst
 	omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
 
-	omap_mux_init_gpio(157, OMAP_PIN_INPUT);
-	omap_mux_init_gpio(158, OMAP_PIN_INPUT);
-	omap_mux_init_gpio(149, OMAP_PIN_INPUT);
+	// for 16c554 uart interrupt
+	omap_mux_init_gpio(159, OMAP_PIN_INPUT);  // UARTA INT
+	omap_mux_init_gpio(160, OMAP_PIN_INPUT);  // UARTB INT
+	omap_mux_init_gpio(184, OMAP_PIN_INPUT);  // UARTC INT
+
+	// 16c554 gpmc bus pin init
+	omap_mux_init_signal("gpmc_ncs4", OMAP_PIN_OUTPUT);                                           
+	omap_mux_init_signal("gpmc_ncs5", OMAP_PIN_OUTPUT);                                           
+	omap_mux_init_signal("gpmc_ncs6", OMAP_PIN_OUTPUT);   
+	omap_mux_init_signal("gpmc_a2", OMAP_PIN_OUTPUT); 
+	omap_mux_init_signal("gpmc_a3", OMAP_PIN_OUTPUT);                                         
+	omap_mux_init_signal("gpmc_a4", OMAP_PIN_OUTPUT);
+	
 
 
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
 	panther_flash_init();
+
+	// 16c554 init
+	gpmc_16c554_init(&board_16c554_data);
+
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	panther_config_mcspi4_mux();
 	panther_spi_board_info[0].irq = gpio_to_irq(PANTHER_TS_GPIO);
