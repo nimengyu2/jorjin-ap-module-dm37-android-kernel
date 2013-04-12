@@ -73,13 +73,13 @@ static unsigned int skip_txen_test; /* force skip of txen test at init time */
 /*
  * Debugging.
  */
-#if 1
+#if 0
 #define DEBUG_AUTOCONF(fmt...)	printk(fmt)
 #else
 #define DEBUG_AUTOCONF(fmt...)	do { } while (0)
 #endif
 
-#if 1
+#if 0
 #define DEBUG_INTR(fmt...)	printk(fmt)
 #else
 #define DEBUG_INTR(fmt...)	do { } while (0)

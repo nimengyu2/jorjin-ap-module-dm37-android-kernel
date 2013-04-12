@@ -1009,7 +1009,7 @@ static void __init panther_init_irq(void)
                                                                                                
                                                                                                
 #define OMAP_DM9000_BASE        0x2c000000                                                     
-#define OMAP_DM9000_GPIO_IRQ    182                                                            
+#define OMAP_DM9000_GPIO_IRQ    172                                                            
 static struct resource omap3sbc8100_plus_dm9000_resources[] = {                                
         [0] =   {                                                                              
                 .start  = OMAP_DM9000_BASE,                                                    
@@ -1131,7 +1131,7 @@ static struct platform_device *panther_devices[] __initdata = {
     &btwilink_device,
 #endif
 	&omap3sbc8100_plus_dm9000_device,
-	&st16c554_device,
+	//&st16c554_device,
 };
 
 static void __init panther_flash_init(void)
@@ -1320,10 +1320,6 @@ static void __init panther_init(void)
 	gpio_request(24, "power");
 	gpio_direction_output(24, 1);
 
-	omap_mux_init_gpio(172, OMAP_PIN_OUTPUT);
-	gpio_request(172, "power2");
-	gpio_direction_output(172, 1);
-
 	// 10.4inch demo for usb phy rst
 	//omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
 
@@ -1347,7 +1343,7 @@ static void __init panther_init(void)
 	panther_flash_init();
 
 	// 16c554 init
-	gpmc_16c554_init(&board_16c554_data);
+	//gpmc_16c554_init(&board_16c554_data);
 
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	panther_config_mcspi4_mux();

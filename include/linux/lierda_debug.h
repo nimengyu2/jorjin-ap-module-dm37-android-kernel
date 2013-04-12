@@ -28,7 +28,7 @@
 #define M_LSD_MMC_DBG  1
 #define M_LSD_USB_DBG  1
 #define M_LSD_NAND_DBG 1
-#define M_LSD_UART_DBG 1
+#define M_LSD_UART_DBG 0
 
 
 // all debug
