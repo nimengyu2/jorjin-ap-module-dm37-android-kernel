@@ -1176,7 +1176,7 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 
 	.phy_reset  = true,
 	//.reset_gpio_port[0]  = -EINVAL,
-        .reset_gpio_port[0]  = 159,
+        .reset_gpio_port[0]  = 39,
 	//.reset_gpio_port[1]  = 39,
 	.reset_gpio_port[1]  = -EINVAL,
 	.reset_gpio_port[2]  = -EINVAL
@@ -1325,12 +1325,12 @@ static void __init panther_init(void)
 	gpio_direction_output(172, 1);
 
 	// 10.4inch demo for usb phy rst
-	omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
+	//omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
 
 	// for 16c554 uart interrupt
-	omap_mux_init_gpio(159, OMAP_PIN_INPUT);  // UARTA INT
-	omap_mux_init_gpio(160, OMAP_PIN_INPUT);  // UARTB INT
-	omap_mux_init_gpio(184, OMAP_PIN_INPUT);  // UARTC INT
+	omap_mux_init_gpio(159, OMAP_PIN_INPUT);  // UARTA INT   mcbsp1_dr
+	omap_mux_init_gpio(160, OMAP_PIN_INPUT);  // UARTB INT  cam_shutter
+	omap_mux_init_gpio(184, OMAP_PIN_INPUT);  // UARTC INT  i2c3_scl
 
 	// 16c554 gpmc bus pin init
 	omap_mux_init_signal("gpmc_ncs4", OMAP_PIN_OUTPUT);                                           

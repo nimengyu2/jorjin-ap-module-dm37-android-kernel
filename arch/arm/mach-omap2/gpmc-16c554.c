@@ -27,32 +27,36 @@
 
 static struct omap_16c554_platform_data *gpmc_cfg;
 #define	M_16C554_UARTCLK 7372800
+#define SERIAL_IOTYPE  UPIO_PORT   //UPIO_MEM UPIO_PORT
+#define SERIAL_FLAGS (UPF_BOOT_AUTOCONF | UPF_IOREMAP)
+#define SERIAL_IRQFLAGS  IRQF_TRIGGER_RISING //IRQF_TRIGGER_HIGH  // IRQF_TRIGGER_RISING
+
 static struct plat_serial8250_port st16c554_platform_data[] = {
 	[0] = {			
-		.irqflags = IRQF_TRIGGER_RISING,	
-		.iotype		= UPIO_MEM,		
-		.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
+		.irqflags = SERIAL_IRQFLAGS,	
+		.iotype		= SERIAL_IOTYPE,		
+		.flags		= SERIAL_FLAGS,
 		.regshift   = 2,
 		.uartclk = M_16C554_UARTCLK	
 	},
 	[1] = {			
-		.irqflags = IRQF_TRIGGER_RISING,	
-		.iotype		= UPIO_MEM,		
-		.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
+		.irqflags = SERIAL_IRQFLAGS,	
+		.iotype		= SERIAL_IOTYPE,		
+		.flags		= SERIAL_FLAGS,
 		.regshift   = 2,
 		.uartclk = M_16C554_UARTCLK	
 	},
 	[2] = {			
-		.irqflags = IRQF_TRIGGER_RISING,	
-		.iotype		= UPIO_MEM,		
-		.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
+		.irqflags = SERIAL_IRQFLAGS,	
+		.iotype		= SERIAL_IOTYPE,		
+		.flags		= SERIAL_FLAGS,
 		.regshift   = 2,
 		.uartclk = M_16C554_UARTCLK	
 	},
 	[3] = {			
-		.irqflags = IRQF_TRIGGER_RISING,	
-		.iotype		= UPIO_MEM,		
-		.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
+		.irqflags = SERIAL_IRQFLAGS,	
+		.iotype		= SERIAL_IOTYPE,		
+		.flags		= SERIAL_FLAGS,
 		.regshift   = 2,
 		.uartclk = M_16C554_UARTCLK	
 	},
@@ -67,12 +71,19 @@ struct platform_device st16c554_device = {
 	.name = "serial8250",
 	.id = PLAT8250_DEV_PLATFORM,
 	//.id = PLAT8250_DEV_EXAR_ST16C554,
+	//.id = PLAT8250_DEV_EXAR_ST16C554,
 	.dev = {
 		.platform_data = st16c554_platform_data,
 	}
 };
 
 
+#define STNOR_GPMC_CONFIG1 ((1 << 4) | (0x3 << 0))
+#define STNOR_GPMC_CONFIG2 ((30 << 16) | (30 << 8) | (2 << 0))
+#define STNOR_GPMC_CONFIG3 ((4 << 16) | (4 << 8) | (2 << 0))
+#define STNOR_GPMC_CONFIG4 ((20 << 24) | (6 << 16) | (20 << 8) | (6 << 0))
+#define STNOR_GPMC_CONFIG5 ((20 << 16) | (30 << 8) | (30 << 0))
+#define STNOR_GPMC_CONFIG6 ((20 << 24))
 
 
 static const u32 gpmc_st16c554[18]={
@@ -82,26 +93,72 @@ static const u32 gpmc_st16c554[18]={
 	 ST16C554_GPMC_CONFIG4,                                                                            
 	 ST16C554_GPMC_CONFIG5,                                                                            
 	 ST16C554_GPMC_CONFIG6,*/
-	0x00000003,
+	STNOR_GPMC_CONFIG1,	
+	STNOR_GPMC_CONFIG2,	
+	STNOR_GPMC_CONFIG3,	
+	STNOR_GPMC_CONFIG4,	
+	STNOR_GPMC_CONFIG5,	
+	STNOR_GPMC_CONFIG6,
+
+	STNOR_GPMC_CONFIG1,	
+	STNOR_GPMC_CONFIG2,	
+	STNOR_GPMC_CONFIG3,	
+	STNOR_GPMC_CONFIG4,	
+	STNOR_GPMC_CONFIG5,	
+	STNOR_GPMC_CONFIG6,
+
+	STNOR_GPMC_CONFIG1,	
+	STNOR_GPMC_CONFIG2,	
+	STNOR_GPMC_CONFIG3,	
+	STNOR_GPMC_CONFIG4,	
+	STNOR_GPMC_CONFIG5,	
+	STNOR_GPMC_CONFIG6,
+
+#if 0
+	0x00000013,
 	0x001e1e02,
 	0x000e0e02,
 	0x1d0c1d0c,
 	0x011c1F1F,
 	0x00000FCF,
 
-	0x00000003,
+	0x00000013,
 	0x001e1e02,
 	0x000e0e02,
 	0x1d0c1d0c,
 	0x011c1F1F,
 	0x00000FCF,
 	
-	0x00000003,
+	0x00000013,
 	0x001e1e02,
 	0x000e0e02,
 	0x1d0c1d0c,
 	0x011c1F1F,
 	0x00000FCF,
+#endif
+
+#if 0
+	0x00000003,
+	0x001e1e00,                                                            
+	0x00080300,                                                            
+	0x1c091c09,                                                            
+	0x04181f1f,                                                            
+	0x00000FCF,
+
+	0x00000003,
+	0x001e1e00,                                                            
+	0x00080300,                                                            
+	0x1c091c09,                                                            
+	0x04181f1f,                                                            
+	0x00000FCF,
+
+	0x00000003,
+	0x001e1e00,                                                            
+	0x00080300,                                                            
+	0x1c091c09,                                                            
+	0x04181f1f,                                                            
+	0x00000FCF,
+#endif
 	
 };                           
 
@@ -160,15 +217,33 @@ void __init gpmc_16c554_init(struct omap_16c554_platform_data *board_data)
 	gpmc_cs_write_reg(5, GPMC_CS_CONFIG7, 0xf6e); 
 	gpmc_cs_write_reg(6, GPMC_CS_CONFIG7, 0xf6f);
 
-	st16c554_platform_data[0].mapbase = (volatile unsigned long)ST16C554_UARTA_CS;
-	st16c554_platform_data[1].mapbase = (volatile unsigned long)ST16C554_UARTB_CS;
-	st16c554_platform_data[2].mapbase = (volatile unsigned long)ST16C554_UARTC_CS;
+	//st16c554_platform_data[0].mapbase = (volatile unsigned long)ST16C554_UARTA_CS;
+	//st16c554_platform_data[1].mapbase = (volatile unsigned long)ST16C554_UARTB_CS;
+	//st16c554_platform_data[2].mapbase = (volatile unsigned long)ST16C554_UARTC_CS;
+
+	st16c554_platform_data[0].iobase = ((volatile unsigned long)ioremap(ST16C554_UARTA_CS,1));
+	st16c554_platform_data[1].iobase = ((volatile unsigned long)ioremap(ST16C554_UARTB_CS,1));
+	st16c554_platform_data[2].iobase = ((volatile unsigned long)ioremap(ST16C554_UARTC_CS,1));
+
 	
 	#if 0
-	while(1)
+	st16c554_platform_data[0].iobase = ((volatile unsigned long)ioremap(ST16C554_UARTA_CS + 0x0C,1));
+	st16c554_platform_data[1].iobase = ((volatile unsigned long)ioremap(ST16C554_UARTB_CS + 0x0C,1));
+	unsigned char read_tmp=0;
+	for(i = 0;i < 256;i++)
 	{
-		__raw_writeb(0xAA, st16c554_platform_data[3].iobase); 
+		__raw_writeb(i, st16c554_platform_data[0].iobase); 
+		printk("write add=0x%08x,data=0x%02x\n",st16c554_platform_data[0].iobase,i);
 		udelay(10);
+		read_tmp =  __raw_readb(st16c554_platform_data[0].iobase);
+		printk("read add=0x%08x,data=0x%02x\n",st16c554_platform_data[0].iobase,read_tmp);
+
+		__raw_writeb(i, st16c554_platform_data[1].iobase); 
+		printk("write add=0x%08x,data=0x%02x\n",st16c554_platform_data[1].iobase,i);
+		udelay(10);
+		read_tmp =  __raw_readb(st16c554_platform_data[1].iobase);
+		printk("read add=0x%08x,data=0x%02x\n",st16c554_platform_data[1].iobase,read_tmp);
+		
 	}
 	#endif
 

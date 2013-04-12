@@ -51,6 +51,7 @@
 #include "suncore.h"
 #endif
 
+#include <linux/lierda_debug.h>
 /*
  * Configuration:
  *   share_irqs - whether we pass IRQF_SHARED to request_irq().  This option
@@ -72,19 +73,19 @@ static unsigned int skip_txen_test; /* force skip of txen test at init time */
 /*
  * Debugging.
  */
-#if 0
+#if 1
 #define DEBUG_AUTOCONF(fmt...)	printk(fmt)
 #else
 #define DEBUG_AUTOCONF(fmt...)	do { } while (0)
 #endif
 
-#if 0
+#if 1
 #define DEBUG_INTR(fmt...)	printk(fmt)
 #else
 #define DEBUG_INTR(fmt...)	do { } while (0)
 #endif
 
-#define PASS_LIMIT	256
+#define PASS_LIMIT	8 //256
 
 #define BOTH_EMPTY 	(UART_LSR_TEMT | UART_LSR_THRE)
 
@@ -197,7 +198,7 @@ static const struct serial8250_config uart_config[] = {
 		.name		= "16550A",
 		.fifo_size	= 16,
 		.tx_loadsz	= 16,
-		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
+		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_00 | UART_FCR_CLEAR_RCVR,
 		.flags		= UART_CAP_FIFO,
 	},
 	[PORT_CIRRUS] = {
@@ -480,7 +481,18 @@ static unsigned int io_serial_in(struct uart_port *p, int offset)
 
 static void io_serial_out(struct uart_port *p, int offset, int value)
 {
-	offset = map_8250_out_reg(p, offset) << p->regshift;
+	if(offset == UART_IER)
+	{
+		printk("SetIER(%x)\n",value);
+	}
+	if(offset == UART_MCR)
+	{
+		printk("SetMCRB(%x)\n",value);
+		//value = value & (~(UART_MCR_OUT2|UART_MCR_OUT1));
+		//printk("SetMCRF(%x)\n",value);
+	}
+	
+	offset = map_8250_out_reg(p, offset) << p->regshift;	
 	outb(value, p->iobase + offset);
 }
 
@@ -1192,7 +1204,8 @@ static void autoconfig(struct uart_8250_port *up, unsigned int probeflags)
 	scratch = serial_in(up, UART_IIR) >> 6;
 
 	DEBUG_AUTOCONF("iir=%d ", scratch);
-
+	// nmy add
+	//scratch  = 2;
 	switch (scratch) {
 	case 0:
 		autoconfig_8250(up);
@@ -1281,6 +1294,7 @@ static void autoconfig_irq(struct uart_8250_port *up)
 	save_mcr = serial_inp(up, UART_MCR);
 	save_ier = serial_inp(up, UART_IER);
 	serial_outp(up, UART_MCR, UART_MCR_OUT1 | UART_MCR_OUT2);
+	//serial_outp(up, UART_MCR, 0);
 
 	irqs = probe_irq_on();
 	serial_outp(up, UART_MCR, 0);
@@ -1391,11 +1405,18 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 	unsigned char ch, lsr = *status;
 	int max_count = 256;
 	char flag;
-
+	lsd_uart_dbg(LSD_DBG,"enter func=receive_chars\n");
 	do {
 		if (likely(lsr & UART_LSR_DR))
+		{
+			lsd_uart_dbg(LSD_DBG,"likely(lsr & UART_LSR_DR)\n");
 			ch = serial_inp(up, UART_RX);
+			lsd_uart_dbg(LSD_DBG,"ch=serial_inp(up, UART_RX)=0x%02x\n",ch);
+		
+		}
 		else
+		{
+			lsd_uart_dbg(LSD_DBG,"no likely(lsr & UART_LSR_DR)\n");
 			/*
 			 * Intel 82571 has a Serial Over Lan device that will
 			 * set UART_LSR_BI without setting UART_LSR_DR when
@@ -1404,6 +1425,7 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 			 * just force the read character to be 0
 			 */
 			ch = 0;
+		}
 
 		flag = TTY_NORMAL;
 		up->port.icount.rx++;
@@ -1412,10 +1434,12 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 		up->lsr_saved_flags = 0;
 
 		if (unlikely(lsr & UART_LSR_BRK_ERROR_BITS)) {
+			lsd_uart_dbg(LSD_DBG,"unlikely(lsr & UART_LSR_BRK_ERROR_BITS)\n");
 			/*
 			 * For statistics only
 			 */
 			if (lsr & UART_LSR_BI) {
+				lsd_uart_dbg(LSD_DBG,"lsr & UART_LSR_BI)\n");
 				lsr &= ~(UART_LSR_FE | UART_LSR_PE);
 				up->port.icount.brk++;
 				/*
@@ -1427,11 +1451,20 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 				if (uart_handle_break(&up->port))
 					goto ignore_char;
 			} else if (lsr & UART_LSR_PE)
+			{
+				lsd_uart_dbg(LSD_DBG,"lsr & UART_LSR_PE\n");
 				up->port.icount.parity++;
+			}			
 			else if (lsr & UART_LSR_FE)
+			{
+				lsd_uart_dbg(LSD_DBG,"lsr & UART_LSR_FE\n");
 				up->port.icount.frame++;
+			}			
 			if (lsr & UART_LSR_OE)
+			{			
+				lsd_uart_dbg(LSD_DBG,"lsr & UART_LSR_OE\n");
 				up->port.icount.overrun++;
+			}
 
 			/*
 			 * Mask off conditions which should be ignored.
@@ -1446,9 +1479,20 @@ receive_chars(struct uart_8250_port *up, unsigned int *status)
 			else if (lsr & UART_LSR_FE)
 				flag = TTY_FRAME;
 		}
+		else
+		{
+			lsd_uart_dbg(LSD_DBG,"no unlikely(lsr & UART_LSR_BRK_ERROR_BITS)\n");
+		}
 		if (uart_handle_sysrq_char(&up->port, ch))
+		{
+			lsd_uart_dbg(LSD_DBG," goto ignore_char\n");
 			goto ignore_char;
-
+		}
+		else
+		{
+			lsd_uart_dbg(LSD_DBG,"no uart_handle_sysrq_char(&up->port, ch)\n");
+		}
+	
 		uart_insert_char(&up->port, lsr, UART_LSR_OE, ch, flag);
 
 ignore_char:
@@ -1466,16 +1510,19 @@ static void transmit_chars(struct uart_8250_port *up)
 	int count;
 
 	if (up->port.x_char) {
+		//lsd_uart_dbg(LSD_DBG,"up->port.x_char\n");
 		serial_outp(up, UART_TX, up->port.x_char);
 		up->port.icount.tx++;
 		up->port.x_char = 0;
 		return;
 	}
 	if (uart_tx_stopped(&up->port)) {
+		//lsd_uart_dbg(LSD_DBG,"uart_tx_stopped(&up->port)\n");
 		serial8250_stop_tx(&up->port);
 		return;
 	}
 	if (uart_circ_empty(xmit)) {
+		//lsd_uart_dbg(LSD_DBG,"uart_circ_empty(xmit)\n");
 		__stop_tx(up);
 		return;
 	}
@@ -1483,6 +1530,7 @@ static void transmit_chars(struct uart_8250_port *up)
 	count = up->tx_loadsz;
 	do {
 		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
+		lsd_uart_dbg(LSD_DBG,"serial_out 0x%x\n",xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		up->port.icount.tx++;
 		if (uart_circ_empty(xmit))
@@ -1528,12 +1576,14 @@ static void serial8250_handle_port(struct uart_8250_port *up)
 {
 	unsigned int status;
 	unsigned long flags;
-
+	
 	spin_lock_irqsave(&up->port.lock, flags);
 
 	status = serial_inp(up, UART_LSR);
+	DEBUG_INTR("S%dstatus = 0x%x...",up->port.line,status);
 
-	DEBUG_INTR("status = %x...", status);
+	//serial_outp(up, UART_IER, 0x07);
+	
 
 	if (status & (UART_LSR_DR | UART_LSR_BI))
 		receive_chars(up, &status);
@@ -1563,6 +1613,8 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	struct irq_info *i = dev_id;
 	struct list_head *l, *end = NULL;
 	int pass_counter = 0, handled = 0;
+	unsigned int status,status_ier,status_fcr,status_iir,status_lcr,
+		status_mcr,status_lsr,status_msr,status_scr,status_dll,status_dlm,ch;
 
 	DEBUG_INTR("serial8250_interrupt(%d)...", irq);
 
@@ -1576,14 +1628,50 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 		up = list_entry(l, struct uart_8250_port, list);
 
 		iir = serial_in(up, UART_IIR);
-		if (!(iir & UART_IIR_NO_INT)) {
-			serial8250_handle_port(up);
+#if 1
+		status_ier = serial_inp(up, UART_IER);
+		//status_fcr = serial_inp(up, UART_FCR);
+		//status_iir = serial_inp(up, UART_IIR);
+		status_lcr = serial_inp(up, UART_LCR);
+		status_mcr = serial_inp(up, UART_MCR);
+		//status_lsr = serial_inp(up, UART_LSR);
+		status_msr = serial_inp(up, UART_MSR);
+		//status_scr = serial_inp(up, UART_SCR);
+		//status_dll = serial_inp(up, UART_DLL);
+		//status_dlm = serial_inp(up, UART_DLM);
 
+		DEBUG_INTR("S%d,IER(%x) IIR(%x) LCR(%x) MCR(%x) MSR(%x)\n", 
+				serial_index(&up->port),			
+				status_ier,iir,
+				status_lcr,status_mcr,status_msr);
+#endif
+
+
+		
+		//DEBUG_INTR("(%x)\n", iir);
+		if ((!(iir & UART_IIR_NO_INT))) {
+			//DEBUG_INTR("2\n");
+			#if 0			
+			if(iir == 0xc0)
+			{
+				//receive_chars(up, &status);   // 接受数据
+				ch = serial_inp(up, UART_RX);
+				lsd_uart_dbg(LSD_DBG,"ch=serial_inp(up, UART_RX)=0x%02x\n",ch);
+			}
+			else
+			#endif
+			{
+				serial8250_handle_port(up);
+
+				
+			}
 			handled = 1;
 
-			end = NULL;
+				end = NULL;
+			
 		} else if (up->port.iotype == UPIO_DWAPB &&
 			  (iir & UART_IIR_BUSY) == UART_IIR_BUSY) {
+			//DEBUG_INTR("3\n");
 			/* The DesignWare APB UART has an Busy Detect (0x07)
 			 * interrupt meaning an LCR write attempt occured while the
 			 * UART was busy. The interrupt must be cleared by reading
@@ -1596,6 +1684,7 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 			end = NULL;
 		} else if (end == NULL)
+			//DEBUG_INTR("4\n");
 			end = l;
 
 		l = l->next;
@@ -1818,15 +1907,17 @@ static void serial8250_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct uart_8250_port *up = (struct uart_8250_port *)port;
 	unsigned char mcr = 0;
-
+#if 1
 	if (mctrl & TIOCM_RTS)
 		mcr |= UART_MCR_RTS;
 	if (mctrl & TIOCM_DTR)
 		mcr |= UART_MCR_DTR;
+
 	if (mctrl & TIOCM_OUT1)
 		mcr |= UART_MCR_OUT1;
 	if (mctrl & TIOCM_OUT2)
 		mcr |= UART_MCR_OUT2;
+#endif
 	if (mctrl & TIOCM_LOOP)
 		mcr |= UART_MCR_LOOP;
 
@@ -2346,9 +2437,12 @@ serial8250_do_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * CTS flow control flag and modem status interrupts
 	 */
 	up->ier &= ~UART_IER_MSI;
+	//up->ier |= UART_IER_MSI;
+#if 1
 	if (!(up->bugs & UART_BUG_NOMSR) &&
 			UART_ENABLE_MS(&up->port, termios->c_cflag))
 		up->ier |= UART_IER_MSI;
+#endif
 	if (up->capabilities & UART_CAP_UUE)
 		up->ier |= UART_IER_UUE | UART_IER_RTOIE;
 
