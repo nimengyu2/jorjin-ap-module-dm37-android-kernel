@@ -29,6 +29,7 @@
 #define M_LSD_USB_DBG  1
 #define M_LSD_NAND_DBG 1
 #define M_LSD_UART_DBG 0
+#define M_LSD_CAN_DBG 1
 
 
 // all debug
@@ -101,6 +102,15 @@
 		level,strrchr(__FILE__,'/') + 1,__FUNCTION__,__LINE__,## arg)
 #else
 #define lsd_uart_dbg(level,format, arg...) 
+#endif
+
+// can debug
+#if(M_LSD_CAN_DBG >= 1)
+#define lsd_can_dbg(level,format, arg...) \
+	printk("---CAN---%s---file=%s,func=%s,line=%d++++  " format ,\
+		level,strrchr(__FILE__,'/') + 1,__FUNCTION__,__LINE__,## arg)
+#else
+#define lsd_can_dbg(level,format, arg...) 
 #endif
 
 

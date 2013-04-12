@@ -25,6 +25,8 @@
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 
+#include <linux/can/platform/sja1000.h>
+
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/mtd/nand.h>
@@ -1072,13 +1074,7 @@ static const u32 gpmc_nor2[7] = {
                                                                                                
 static void __init omap3sbc8100_plus_init_dm9000(void)                                         
 {                                                                                              
-                                                                                               
-	// init gpmc mux                                                                              
-	omap_mux_init_signal("gpmc_ncs3", OMAP_PIN_OUTPUT);                                           
-	omap_mux_init_signal("gpmc_ncs6", OMAP_PIN_OUTPUT);                                           
-	omap_mux_init_signal("gpmc_ncs7", OMAP_PIN_OUTPUT);                                           
-	omap_mux_init_signal("gpmc_a4", OMAP_PIN_OUTPUT);                                             
-                                                                                               
+                                                                                                                              
 	omap_mux_init_gpio(OMAP_DM9000_GPIO_IRQ, OMAP_PIN_OUTPUT);                                    
 	//omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);                                         
 	gpio_request(OMAP_DM9000_GPIO_IRQ, "dm9000");                                                 
@@ -1120,6 +1116,71 @@ static void __init omap3sbc8100_plus_init_dm9000(void)
 }                                                                                              
 
 
+#define SJA1000_CS7_BASE_ADDR  0x3E000000
+#define OMAP_SJA1000_GPIO_IRQ    173
+static struct resource pcm970_sja1000_resources[] = {
+  {
+    .start   = SJA1000_CS7_BASE_ADDR,
+    .end     = SJA1000_CS7_BASE_ADDR + 0x100 - 1,
+    .flags   = IORESOURCE_MEM,
+  }, 
+  {
+    .start  = OMAP_GPIO_IRQ(OMAP_SJA1000_GPIO_IRQ),
+    .end    = OMAP_GPIO_IRQ(OMAP_SJA1000_GPIO_IRQ),
+    .flags   = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+  },
+};
+
+
+static struct sja1000_platform_data pcm970_sja1000_platform_data = {
+	.osc_freq  = 16000000,
+	.ocr    =   OCR_MODE_NORMAL|OCR_TX0_PULLDOWN | OCR_TX1_PULLDOWN,
+	.cdr    =  CDR_PELICAN|CDR_CBP,
+};
+
+static struct platform_device pcm970_sja1000 = {
+  .name = "sja1000_platform",
+  .id             = 0,
+  .dev = {
+    .platform_data = &pcm970_sja1000_platform_data,
+  },
+  .resource = pcm970_sja1000_resources,
+  .num_resources = ARRAY_SIZE(pcm970_sja1000_resources),
+};
+
+#define CAN1_GPMC_CONFIG1  (0x03 | (1 << 4) | (1 << 9) | (0 << 10) | (0 << 12) | (0 << 27) | (0 << 29) | (0 << 30) | (0 << 28))
+#define CAN1_GPMC_CONFIG2  ((0x1F << 16) | (0x1F << 8) | (1 << 7) | (0x00)) 
+#define CAN1_GPMC_CONFIG3  ((0x1F << 16) | (0x1F << 8) | (0 << 7) | (0x2)) 
+#define CAN1_GPMC_CONFIG4  ((0x18 << 24) | (1 << 23) | (0xF << 16) | (0x18 << 8) | (1 << 7) | (0xF << 0)) 
+#define CAN1_GPMC_CONFIG5  ((0xF << 24) | (0x1F << 16) | (0x1F << 8) | (0x1F << 0)) 
+#define CAN1_GPMC_CONFIG6  ((0x1F << 24) | (0x3 << 16) | (0xF << 8) | (1 << 7) | (1 << 6) | (0xF << 0))
+#define CAN1_GPMC_CONFIG7 0x00000f7E  // 
+#define GPMC_CS7 7
+static void __init omap3sbc8100_plus_init_sja1000(void)
+{
+  printk("%s ---%d@%s\n",__func__,__LINE__,__FILE__);  
+  omap_mux_init_gpio(OMAP_SJA1000_GPIO_IRQ, OMAP_PIN_INPUT_PULLUP);
+  if (gpio_request(OMAP_SJA1000_GPIO_IRQ, "sja1000 irq") < 0) {
+                printk(KERN_ERR "Failed to request GPIO%d for sja1000 IRQ\n",OMAP_SJA1000_GPIO_IRQ);
+                return;
+        }
+  else
+  {
+    printk("gpio_request OMAP_SJA1000_GPIO_IRQ ok\n");
+  }
+
+        gpio_direction_input(OMAP_SJA1000_GPIO_IRQ);
+	gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG1, CAN1_GPMC_CONFIG1);                                   
+        gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG2, CAN1_GPMC_CONFIG2);
+	gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG3, CAN1_GPMC_CONFIG3);
+	gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG4, CAN1_GPMC_CONFIG4);                                   
+        gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG5, CAN1_GPMC_CONFIG5);
+	gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG6, CAN1_GPMC_CONFIG6);
+	gpmc_cs_write_reg(GPMC_CS7, GPMC_CS_CONFIG7, CAN1_GPMC_CONFIG7);
+	udelay(100);
+}
+
+
 
 static struct platform_device *panther_devices[] __initdata = {
 	&leds_gpio,
@@ -1131,7 +1192,8 @@ static struct platform_device *panther_devices[] __initdata = {
     &btwilink_device,
 #endif
 	&omap3sbc8100_plus_dm9000_device,
-	//&st16c554_device,
+	&st16c554_device,
+	&pcm970_sja1000,
 };
 
 static void __init panther_flash_init(void)
@@ -1304,6 +1366,7 @@ static void __init panther_init(void)
 	panther_i2c_init();
 	
 	omap3sbc8100_plus_init_dm9000();
+	omap3sbc8100_plus_init_sja1000();
 
 	platform_add_devices(panther_devices,
 			ARRAY_SIZE(panther_devices));
@@ -1311,39 +1374,27 @@ static void __init panther_init(void)
 
 	omap_mux_init_gpio(25, OMAP_PIN_OUTPUT);
 
-	// 10.4inch demo for audio en
-	omap_mux_init_gpio(167, OMAP_PIN_OUTPUT);
-	gpio_request(167, "audio_en");
-	gpio_direction_output(167, 1);
-
-	omap_mux_init_gpio(24, OMAP_PIN_OUTPUT);
-	gpio_request(24, "power");
-	gpio_direction_output(24, 1);
-
-	// 10.4inch demo for usb phy rst
-	//omap_mux_init_gpio(159, OMAP_PIN_OUTPUT);
-
 	// for 16c554 uart interrupt
 	omap_mux_init_gpio(159, OMAP_PIN_INPUT);  // UARTA INT   mcbsp1_dr
 	omap_mux_init_gpio(160, OMAP_PIN_INPUT);  // UARTB INT  cam_shutter
 	omap_mux_init_gpio(184, OMAP_PIN_INPUT);  // UARTC INT  i2c3_scl
 
 	// 16c554 gpmc bus pin init
+	omap_mux_init_signal("gpmc_ncs3", OMAP_PIN_OUTPUT);  
 	omap_mux_init_signal("gpmc_ncs4", OMAP_PIN_OUTPUT);                                           
 	omap_mux_init_signal("gpmc_ncs5", OMAP_PIN_OUTPUT);                                           
 	omap_mux_init_signal("gpmc_ncs6", OMAP_PIN_OUTPUT);   
+	omap_mux_init_signal("gpmc_ncs7", OMAP_PIN_OUTPUT); 
 	omap_mux_init_signal("gpmc_a2", OMAP_PIN_OUTPUT); 
 	omap_mux_init_signal("gpmc_a3", OMAP_PIN_OUTPUT);                                         
 	omap_mux_init_signal("gpmc_a4", OMAP_PIN_OUTPUT);
 	
-
-
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
 	panther_flash_init();
 
 	// 16c554 init
-	//gpmc_16c554_init(&board_16c554_data);
+	gpmc_16c554_init(&board_16c554_data);
 
 #ifdef CONFIG_TOUCHSCREEN_ADS7846
 	panther_config_mcspi4_mux();

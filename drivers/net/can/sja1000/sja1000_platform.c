@@ -24,9 +24,11 @@
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
+#include <linux/can.h>
 #include <linux/can/dev.h>
 #include <linux/can/platform/sja1000.h>
 #include <linux/io.h>
+#include <linux/lierda_debug.h>
 
 #include "sja1000.h"
 
@@ -35,45 +37,35 @@
 MODULE_AUTHOR("Sascha Hauer <s.hauer@pengutronix.de>");
 MODULE_DESCRIPTION("Socket-CAN driver for SJA1000 on the platform bus");
 MODULE_LICENSE("GPL v2");
+static u8 sp_read_tmp;
+static unsigned short sp_reg_tmp = 0;
 
-static u8 sp_read_reg8(const struct sja1000_priv *priv, int reg)
+static u8 sp_read_reg(const struct sja1000_priv *priv, int reg)
 {
-	return ioread8(priv->reg_base + reg);
+	//u8 ret;
+	sp_reg_tmp = (reg << 1);
+	sp_read_tmp = ioread8(priv->reg_base + sp_reg_tmp);
+	lsd_can_dbg(LSD_DBG,"%s:ioread8 priv->reg_base=0x%08x,reg=%d-0x%02x,data=0x%02x\n",__FUNCTION__,priv->reg_base,reg,reg,sp_read_tmp);	
+	return sp_read_tmp;
 }
 
-static void sp_write_reg8(const struct sja1000_priv *priv, int reg, u8 val)
-{
-	iowrite8(val, priv->reg_base + reg);
-}
-
-static u8 sp_read_reg16(const struct sja1000_priv *priv, int reg)
-{
-	return ioread8(priv->reg_base + reg * 2);
-}
-
-static void sp_write_reg16(const struct sja1000_priv *priv, int reg, u8 val)
-{
-	iowrite8(val, priv->reg_base + reg * 2);
-}
-
-static u8 sp_read_reg32(const struct sja1000_priv *priv, int reg)
-{
-	return ioread8(priv->reg_base + reg * 4);
-}
-
-static void sp_write_reg32(const struct sja1000_priv *priv, int reg, u8 val)
-{
-	iowrite8(val, priv->reg_base + reg * 4);
+static void sp_write_reg(const struct sja1000_priv *priv, int reg, u8 val)
+{	
+	sp_reg_tmp = (reg << 1);
+	iowrite8(val, priv->reg_base + sp_reg_tmp);
+	lsd_can_dbg(LSD_DBG,"%s,priv->reg_base=0x%08x,reg=%d-0x%02x,val=0x%02x\n",__FUNCTION__,priv->reg_base,reg,reg,val);	
 }
 
 static int sp_probe(struct platform_device *pdev)
 {
 	int err;
+	unsigned char i,reg;
 	void __iomem *addr;
 	struct net_device *dev;
 	struct sja1000_priv *priv;
 	struct resource *res_mem, *res_irq;
 	struct sja1000_platform_data *pdata;
+	lsd_can_dbg(LSD_DBG,"enter func=%s\n",__FUNCTION__);	
 
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
@@ -95,11 +87,13 @@ static int sp_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	
 	addr = ioremap_nocache(res_mem->start, resource_size(res_mem));
 	if (!addr) {
 		err = -ENOMEM;
 		goto exit_release;
 	}
+	lsd_can_dbg(LSD_DBG,"res_mem->start=0x%08x,ioremap_nocache,addr=0x%08x\n",res_mem->start,addr);
 
 	dev = alloc_sja1000dev(0);
 	if (!dev) {
@@ -109,31 +103,52 @@ static int sp_probe(struct platform_device *pdev)
 	priv = netdev_priv(dev);
 
 	dev->irq = res_irq->start;
-	priv->irq_flags = res_irq->flags & (IRQF_TRIGGER_MASK | IRQF_SHARED);
+	priv->irq_flags = res_irq->flags & IRQF_TRIGGER_MASK;
 	priv->reg_base = addr;
-	/* The CAN clock frequency is half the oscillator clock frequency */
-	priv->can.clock.freq = pdata->osc_freq / 2;
+	priv->read_reg = sp_read_reg;
+	priv->write_reg = sp_write_reg;
+	priv->can.clock.freq = pdata->osc_freq;
 	priv->ocr = pdata->ocr;
 	priv->cdr = pdata->cdr;
 
-	switch (res_mem->flags & IORESOURCE_MEM_TYPE_MASK) {
-	case IORESOURCE_MEM_32BIT:
-		priv->read_reg = sp_read_reg32;
-		priv->write_reg = sp_write_reg32;
-		break;
-	case IORESOURCE_MEM_16BIT:
-		priv->read_reg = sp_read_reg16;
-		priv->write_reg = sp_write_reg16;
-		break;
-	case IORESOURCE_MEM_8BIT:
-	default:
-		priv->read_reg = sp_read_reg8;
-		priv->write_reg = sp_write_reg8;
-		break;
-	}
-
 	dev_set_drvdata(&pdev->dev, dev);
 	SET_NETDEV_DEV(dev, &pdev->dev);
+
+#if 0
+	i = 0;
+	reg = 2;
+	while(1)
+	{
+		//writew(0x5555,addr);
+		for(i = 0;i < 0x7F;i++)
+		{
+			//iowrite8(i,addr+ reg);
+			//lsd_can_dbg(LSD_DBG,"write addr=0x%08x,reg=%d,val=0x%02x\n",addr,reg,i);	
+			sp_read_tmp = ioread8(addr + i);
+			lsd_can_dbg(LSD_DBG,"ioread8 add=0x%08x,i=%d,data=0x%02x\n",addr,i,sp_read_tmp);
+			mdelay(50);
+		}
+	}
+#endif
+
+#if 0
+	i = 0;
+	reg = (0x04 << 1);
+	while(1)
+	{
+		//writew(0x5555,addr);
+		for(i = 0;i < 0x7F;i++)
+		{
+			iowrite8(i,addr+ reg);
+			lsd_can_dbg(LSD_DBG,"write addr=0x%08x,reg=%d,val=0x%02x\n",addr,reg,i);	
+			//sp_read_tmp = ioread8(addr + reg);
+			//writeb(0x55, addr+ reg);
+			sp_read_tmp = readb(addr + reg);
+			lsd_can_dbg(LSD_DBG,"ioread8 add=0x%08x,reg=%d,data=0x%02x\n",addr,reg,sp_read_tmp);
+			mdelay(10);
+		}
+	}
+#endif
 
 	err = register_sja1000dev(dev);
 	if (err) {
@@ -141,6 +156,9 @@ static int sp_probe(struct platform_device *pdev)
 			DRV_NAME, err);
 		goto exit_free;
 	}
+
+
+
 
 	dev_info(&pdev->dev, "%s device registered (reg_base=%p, irq=%d)\n",
 		 DRV_NAME, priv->reg_base, dev->irq);
@@ -161,7 +179,7 @@ static int sp_remove(struct platform_device *pdev)
 	struct net_device *dev = dev_get_drvdata(&pdev->dev);
 	struct sja1000_priv *priv = netdev_priv(dev);
 	struct resource *res;
-
+	lsd_can_dbg(LSD_DBG,"enter func=%s\n",__FUNCTION__);	
 	unregister_sja1000dev(dev);
 	dev_set_drvdata(&pdev->dev, NULL);
 
@@ -187,11 +205,13 @@ static struct platform_driver sp_driver = {
 
 static int __init sp_init(void)
 {
+	lsd_can_dbg(LSD_DBG,"enter func=%s\n",__FUNCTION__);	
 	return platform_driver_register(&sp_driver);
 }
 
 static void __exit sp_exit(void)
 {
+	lsd_can_dbg(LSD_DBG,"enter func=%s\n",__FUNCTION__);	
 	platform_driver_unregister(&sp_driver);
 }
 
