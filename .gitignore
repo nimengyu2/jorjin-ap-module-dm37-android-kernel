@@ -46,6 +46,7 @@ modules.builtin
 /arch/arm/boot/compressed/lib1funcs.S
 /arch/arm/boot/compressed/piggy.gzip
 /arch/arm/boot/compressed/vmlinux
+/kernel_make.out
 
 #
 # git files that we don't want to ignore even it they are dot-files

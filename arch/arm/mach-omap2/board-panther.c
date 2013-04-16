@@ -272,7 +272,8 @@ static struct mtd_partition panther_nand_partitions[] = {
 		.size		= 40 * NAND_BLOCK_SIZE,
 	},
 	{
-		.name		= "File System",
+		//.name		= "File System",
+		.name		= "rootfs",
 		.offset		= MTDPART_OFS_APPEND,	/* Offset = 0x780000 */
 		.size		= MTDPART_SIZ_FULL,
 	},
