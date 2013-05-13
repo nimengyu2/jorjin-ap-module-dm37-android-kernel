@@ -91,14 +91,14 @@ int omap3_core_dpll_m2_set_rate(struct clk *clk, unsigned long rate)
 	if (c == 0)
 		c = 1;
 
-	pr_debug("clock: changing CORE DPLL rate from %lu to %lu\n", clk->rate,
+	printk("clock: changing CORE DPLL rate from %lu to %lu\n", clk->rate,
 		 validrate);
-	pr_debug("clock: SDRC CS0 timing params used:"
+	printk("clock: SDRC CS0 timing params used:"
 		 " RFR %08x CTRLA %08x CTRLB %08x MR %08x\n",
 		 sdrc_cs0->rfr_ctrl, sdrc_cs0->actim_ctrla,
 		 sdrc_cs0->actim_ctrlb, sdrc_cs0->mr);
 	if (sdrc_cs1)
-		pr_debug("clock: SDRC CS1 timing params used: "
+		printk("clock: SDRC CS1 timing params used: "
 		 " RFR %08x CTRLA %08x CTRLB %08x MR %08x\n",
 		 sdrc_cs1->rfr_ctrl, sdrc_cs1->actim_ctrla,
 		 sdrc_cs1->actim_ctrlb, sdrc_cs1->mr);
