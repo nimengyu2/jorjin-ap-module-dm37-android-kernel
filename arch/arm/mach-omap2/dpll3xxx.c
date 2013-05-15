@@ -468,8 +468,9 @@ int omap3_noncore_dpll_set_rate(struct clk *clk, unsigned long rate)
 				WARN_ON(1);
 		}
 
-		pr_debug("clock: %s: set rate: locking rate to %lu.\n",
-			 clk->name, rate);
+		// yuge modify
+		printk("clock: %s: set rate: locking rate to %lu.,dd->last_rounded_m=%d,n=%d,freqsel=%d\n",
+			 clk->name, rate, dd->last_rounded_m,dd->last_rounded_n, freqsel);
 
 		ret = omap3_noncore_dpll_program(clk, dd->last_rounded_m,
 						 dd->last_rounded_n, freqsel);

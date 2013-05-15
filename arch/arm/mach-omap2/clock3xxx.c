@@ -60,9 +60,11 @@ void __init omap3_clk_lock_dpll5(void)
 {
 	struct clk *dpll5_clk;
 	struct clk *dpll5_m2_clk;
+	int ret;
 
 	dpll5_clk = clk_get(NULL, "dpll5_ck");
-	clk_set_rate(dpll5_clk, DPLL5_FREQ_FOR_USBHOST);
+	//clk_set_rate(dpll5_clk, DPLL5_FREQ_FOR_USBHOST);
+	clk_set_rate(dpll5_clk, 959833333);
 	clk_enable(dpll5_clk);
 
 	/* Enable autoidle to allow it to enter low power bypass */
@@ -71,7 +73,13 @@ void __init omap3_clk_lock_dpll5(void)
 	/* Program dpll5_m2_clk divider for no division */
 	dpll5_m2_clk = clk_get(NULL, "dpll5_m2_ck");
 	clk_enable(dpll5_m2_clk);
-	clk_set_rate(dpll5_m2_clk, DPLL5_FREQ_FOR_USBHOST);
+	ret = clk_set_rate(dpll5_m2_clk, DPLL5_FREQ_FOR_USBHOST);
+	if(ret == -EINVAL)
+	{
+		printk("AAAAA:clk_set_rate dpll5_m2_clk, error -EINVAL\n");
+	}
+	//clk_set_rate(dpll5_m2_clk, 119979166);
+	printk("AAAAA:dpll5_m2_clk->rate=%d\n",dpll5_m2_clk->rate);
 
 	clk_disable(dpll5_m2_clk);
 	clk_disable(dpll5_clk);
