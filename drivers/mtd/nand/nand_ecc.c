@@ -449,6 +449,10 @@ int __nand_correct_data(unsigned char *buf,
 	/* 256 or 512 bytes/ecc  */
 	const uint32_t eccsize_mult = eccsize >> 8;
 
+
+	//printk("read_ecc:0x%02x,0x%02x,0x%02x\n",read_ecc[0],read_ecc[1],read_ecc[2]);
+	//printk("calc_ecc:0x%02x,0x%02x,0x%02x\n",calc_ecc[0],calc_ecc[1],calc_ecc[2]);
+
 	/*
 	 * b0 to b2 indicate which bit is faulty (if any)
 	 * we might need the xor result  more than once,
@@ -507,7 +511,7 @@ int __nand_correct_data(unsigned char *buf,
 	if ((bitsperbyte[b0] + bitsperbyte[b1] + bitsperbyte[b2]) == 1)
 		return 1;	/* error in ecc data; no action needed */
 
-	printk(KERN_ERR "uncorrectable error : ");
+	printk(KERN_ERR "uncorrectable error : \n");
 	return -1;
 }
 EXPORT_SYMBOL(__nand_correct_data);

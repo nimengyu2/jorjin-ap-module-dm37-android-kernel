@@ -266,11 +266,13 @@ static void omap_read_buf_pref(struct mtd_info *mtd, u_char *buf, int len)
 	if (ret) {
 		/* PFPW engine is busy, use cpu copy method */
 		if (info->nand.options & NAND_BUSWIDTH_16)
-			omap_read_buf16(mtd, buf, len);
+			//omap_read_buf16(mtd, buf, len);
+			omap_read_buf16(mtd, (u_char *)p, len);
 		else
-			omap_read_buf8(mtd, buf, len);
+			//omap_read_buf8(mtd, buf, len);
+			omap_read_buf8(mtd, (u_char *)p, len);
 	} else {
-		p = (u32 *) buf;
+		//p = (u32 *) buf;
 		do {
 			r_count = gpmc_read_status(GPMC_PREFETCH_FIFO_CNT);
 			r_count = r_count >> 2;
@@ -296,7 +298,8 @@ static void omap_write_buf_pref(struct mtd_info *mtd,
 						struct omap_nand_info, mtd);
 	uint32_t w_count = 0;
 	int i = 0, ret = 0;
-	u16 *p;
+	//u16 *p;
+	u16 *p = (u16 *)buf;
 	unsigned long tim, limit;
 
 	/* take care of subpage writes */
@@ -312,11 +315,13 @@ static void omap_write_buf_pref(struct mtd_info *mtd,
 	if (ret) {
 		/* PFPW engine is busy, use cpu copy method */
 		if (info->nand.options & NAND_BUSWIDTH_16)
-			omap_write_buf16(mtd, buf, len);
+			//omap_write_buf16(mtd, buf, len);
+			omap_write_buf16(mtd, (u_char *)p, len);
 		else
-			omap_write_buf8(mtd, buf, len);
+			//omap_write_buf8(mtd, buf, len);
+			omap_write_buf8(mtd, (u_char *)p, len);
 	} else {
-		p = (u16 *) buf;
+		//p = (u16 *) buf;
 		while (len) {
 			w_count = gpmc_read_status(GPMC_PREFETCH_FIFO_CNT);
 			w_count = w_count >> 1;
@@ -999,7 +1004,8 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	info->mtd.priv		= &info->nand;
 	info->mtd.name		= dev_name(&pdev->dev);
 	info->mtd.owner		= THIS_MODULE;
-	pdata->ecc_opt		= OMAP_ECC_HAMMING_CODE_HW;
+	//pdata->ecc_opt		= OMAP_ECC_HAMMING_CODE_HW;
+	pdata->ecc_opt		= OMAP_ECC_HAMMING_CODE_DEFAULT;
 	info->ecc_opt		= pdata->ecc_opt;
 
 	info->nand.options	= pdata->devsize;
@@ -1043,11 +1049,13 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 	}
 	switch (pdata->xfer_type) {
 	case NAND_OMAP_PREFETCH_POLLED:
+		printk("AAAA;NAND_OMAP_PREFETCH_POLLED\n");
 		info->nand.read_buf   = omap_read_buf_pref;
 		info->nand.write_buf  = omap_write_buf_pref;
 		break;
 
 	case NAND_OMAP_POLLED:
+		printk("AAAA;NAND_OMAP_POLLED\n");
 		if (info->nand.options & NAND_BUSWIDTH_16) {
 			info->nand.read_buf   = omap_read_buf16;
 			info->nand.write_buf  = omap_write_buf16;
@@ -1100,7 +1108,10 @@ static int __devinit omap_nand_probe(struct platform_device *pdev)
 
 	/* selsect the ecc type */
 	if (pdata->ecc_opt == OMAP_ECC_HAMMING_CODE_DEFAULT)
+	{
+		printk("AAAAAAA:info->nand.ecc.mode = NAND_ECC_SOFT\n");
 		info->nand.ecc.mode = NAND_ECC_SOFT;
+	}	
 	else {
 		if (pdata->ecc_opt == OMAP_ECC_BCH4_CODE_HW) {
 			info->nand.ecc.bytes    = 4*7;

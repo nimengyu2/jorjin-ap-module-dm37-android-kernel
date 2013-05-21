@@ -1068,6 +1068,7 @@ EXPORT_SYMBOL(nand_lock);
 static int nand_read_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 			      uint8_t *buf, int page)
 {
+	//printk("nand_read_page_raw\n");
 	chip->read_buf(mtd, buf, mtd->writesize);
 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
 	return 0;
@@ -1126,6 +1127,7 @@ static int nand_read_page_raw_syndrome(struct mtd_info *mtd,
 static int nand_read_page_swecc(struct mtd_info *mtd, struct nand_chip *chip,
 				uint8_t *buf, int page)
 {
+	static int k = 1;
 	int i, eccsize = chip->ecc.size;
 	int eccbytes = chip->ecc.bytes;
 	int eccsteps = chip->ecc.steps;
@@ -1133,6 +1135,13 @@ static int nand_read_page_swecc(struct mtd_info *mtd, struct nand_chip *chip,
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	uint8_t *ecc_code = chip->buffers->ecccode;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
+
+	if(k == 1)
+	{
+		k = 0;
+		printk("nand_read_page_swecc first time:chip->ecc.size=%d,chip->ecc.bytes=%d,chip->ecc.steps%d,chip->ecc.total=%d\n",
+				chip->ecc.size,chip->ecc.bytes,chip->ecc.steps,chip->ecc.total);
+	}
 
 	chip->ecc.read_page_raw(mtd, chip, buf, page);
 
@@ -1175,6 +1184,19 @@ static int nand_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	int datafrag_len, eccfrag_len, aligned_len, aligned_pos;
 	int busw = (chip->options & NAND_BUSWIDTH_16) ? 2 : 1;
 	int index = 0;
+	static int k = 1;
+	int j;
+	unsigned char *pdata;
+	unsigned char poob[256];
+
+	if(k == 1)
+	{
+		k = 0;
+		printk("nand_read_page_swecc first time:chip->ecc.size=%d,chip->ecc.bytes=%d,chip->ecc.steps=%d,chip->ecc.total=%d,mtd->oobsize=%d\n",
+				chip->ecc.size,chip->ecc.bytes,chip->ecc.steps,chip->ecc.total,mtd->oobsize);
+	}
+
+	//printk("nand_read_subpage\n");
 
 	/* Column address wihin the page aligned to ECC size (256bytes). */
 	start_step = data_offs / chip->ecc.size;
@@ -1210,6 +1232,16 @@ static int nand_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 	if (gaps) {
 		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, mtd->writesize, -1);
 		chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
+		
+		printk("nand_read_subpage oob,mtd->oobsize=%d,data is:\n",mtd->oobsize);
+		pdata = chip->oob_poi;
+		for(j = 0;j < mtd->oobsize;j++)
+		{
+			printk("0x%02x ",*pdata);
+			pdata++;
+		}	
+		printk("\n");
+		
 	} else {
 		/* send the command to read the particular ecc bytes */
 		/* take care about buswidth alignment in read_buf */
@@ -1225,6 +1257,18 @@ static int nand_read_subpage(struct mtd_info *mtd, struct nand_chip *chip,
 		chip->cmdfunc(mtd, NAND_CMD_RNDOUT,
 					mtd->writesize + aligned_pos, -1);
 		chip->read_buf(mtd, &chip->oob_poi[aligned_pos], aligned_len);
+#if 0
+		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, mtd->writesize, -1);
+		chip->read_buf(mtd, poob, mtd->oobsize);
+		printk("nand_read_subpage oob,mtd->oobsize=%d,data is:\n",mtd->oobsize);
+		pdata = poob;
+		for(j = 0;j < mtd->oobsize;j++)
+		{
+			printk("0x%02x ",*pdata);
+			pdata++; 
+		}	
+		printk("\n");
+#endif
 	}
 
 	for (i = 0; i < eccfrag_len; i++)
@@ -1629,11 +1673,22 @@ static int nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 static int nand_read_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 			     int page, int sndcmd)
 {
+	int i;
+	unsigned char *pdata;
 	if (sndcmd) {
 		chip->cmdfunc(mtd, NAND_CMD_READOOB, 0, page);
 		sndcmd = 0;
 	}
 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
+
+	printk("nand_read_oob_std,mtd->oobsize=%d,data is:\n",mtd->oobsize);
+	pdata = chip->oob_poi;
+	for(i = 0;i < mtd->oobsize;i++)
+	{
+		printk("0x%02x ",*pdata);
+		pdata++;
+	}	
+	printk("\n");
 	return sndcmd;
 }
 
@@ -3385,6 +3440,7 @@ int nand_scan_tail(struct mtd_info *mtd)
 		if (!chip->ecc.size)
 			chip->ecc.size = 256;
 		chip->ecc.bytes = 3;
+		printk("AAAAAA:chip->ecc.size=%d,chip->ecc.bytes=%d\n",chip->ecc.size,chip->ecc.bytes);
 		break;
 
 	case NAND_ECC_NONE:
